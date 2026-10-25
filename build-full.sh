@@ -83,6 +83,11 @@ run_make() {
 	[ ! -s "$logs/make.rc" ] || report_failure "$what"
 }
 
+# dump1090 enables HackRF, SoapySDR and LimeSDR support when pkg-config finds
+# them, and this build has the first two; its package declares only
+# librtlsdr. ADS-B runs on the RTL-SDR, so keep those off.
+export HACKRF=no SOAPYSDR=no LIMESDR=no
+
 run_make "Download" download -j8
 run_make "Build" -j"$(nproc)"
 

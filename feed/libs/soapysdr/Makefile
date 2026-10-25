@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=soapysdr
 PKG_VERSION:=0.9.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/pothosware/SoapySDR.git
@@ -66,6 +66,10 @@ define Build/InstallDev
 	$(CP) $(PKG_INSTALL_DIR)/usr/include/SoapySDR $(1)/usr/include/
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libSoapySDR.so* $(1)/usr/lib/
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/pkgconfig/SoapySDR.pc $(1)/usr/lib/pkgconfig/
+	# Upstream writes absolute paths; relative to ${prefix}, OpenWrt's
+	# pkg-config points them into staging instead of the build host's /usr.
+	$(SED) 's,^libdir=/usr/lib,libdir=$$$${exec_prefix}/lib,; s,^includedir=/usr/include,includedir=$$$${prefix}/include,' \
+		$(1)/usr/lib/pkgconfig/SoapySDR.pc
 	$(CP) $(PKG_INSTALL_DIR)/usr/share/cmake/SoapySDR $(1)/usr/share/cmake/
 endef
 
