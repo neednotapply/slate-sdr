@@ -18,12 +18,16 @@ pkgs=$(cd "${1:?usage: tests/run.sh <directory with .apk files>}" && pwd)
 ov=$(mktemp -d)
 trap 'rm -rf "$ov"' EXIT
 
-docker run --rm --user 0 -v "$pkgs:/pkgs:ro" -v "$ov:/ov" "$SDK_IMAGE" sh -c '
+# Unpacked as root, then handed back to the caller so the steps below (and
+# the cleanup) can write to it.
+docker run --rm --user 0 -e OWNER="$(id -u):$(id -g)" \
+	-v "$pkgs:/pkgs:ro" -v "$ov:/ov" "$SDK_IMAGE" sh -c '
 	for f in /pkgs/*.apk; do
 		case "${f##*/}" in slate-sdr-*) continue ;; esac
 		/builder/staging_dir/host/bin/apk extract --allow-untrusted --destination /ov "$f" > /dev/null
 	done
-	rm -rf /ov/lib/apk'
+	rm -rf /ov/lib/apk
+	chown -R "$OWNER" /ov'
 
 f="$here/feed/utils/slate-sdr/files"
 mkdir -p "$ov/etc/config" "$ov/etc/init.d" "$ov/usr/libexec" "$ov/usr/sbin" \
@@ -41,7 +45,8 @@ chmod 755 "$ov/etc/init.d/slate-sdr" "$ov/usr/libexec/slate-sdr-job" \
 # repository when online; offline, <directory> must hold them too.
 docker run --rm -v "$ov:/ov:ro" -v "$here/tests:/tests:ro" "$ROOTFS_IMAGE" sh -c '
 	if apk update > /dev/null 2>&1; then
-		apk add rtl-sdr rtl_433 rtl-ais libstdcpp6 libusb-1.0-0 > /dev/null
+		apk add rtl-sdr rtl_433 rtl-ais libstdcpp6 libusb-1.0-0 > /tmp/apk.log 2>&1 ||
+			{ echo "apk add failed:"; cat /tmp/apk.log; }
 	else
 		echo "(offline: testing with the given packages only)"
 	fi

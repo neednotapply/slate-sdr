@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Lint shell scripts
         run: |
@@ -31,15 +31,13 @@ jobs:
           shellcheck -s sh -e SC3043,SC2016,SC2012,SC1091,SC2015 tests/rootfs-test.sh
 
       - name: Build
-        run: ./build.sh
-
-      - name: Test on OpenWrt's MIPS userland (QEMU)
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q qemu-user-static
-          sh tests/run.sh out/packages
+          ./build.sh
+          for f in out/firmware/*sysupgrade.bin; do
+            echo "::notice title=Firmware::$(basename "$f") ($(du -h "$f" | cut -f1))"
+          done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: slate-sdr-firmware
           path: |
@@ -48,13 +46,35 @@ jobs:
             out/firmware/sha256sums
             out/packages/*.apk
 
+      - name: Test on OpenWrt's MIPS userland (QEMU)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q qemu-user-static
+          # A binfmt entry for big-endian MIPS that works inside containers
+          # (flag F); register it if the package did not.
+          if [ ! -e /proc/sys/fs/binfmt_misc/qemu-mips ]; then
+            grep -v '^#' /usr/lib/binfmt.d/qemu-mips.conf | head -n 1 |
+              sudo tee /proc/sys/fs/binfmt_misc/register > /dev/null
+          fi
+          grep -E '^(enabled|interpreter|flags)' /proc/sys/fs/binfmt_misc/qemu-mips
+          set -o pipefail
+          sh tests/run.sh out/packages 2>&1 | tee test.log
+
+      # Job logs are not always at hand; failures also go to annotations.
+      - name: Report test failures
+        if: failure()
+        run: |
+          [ -f test.log ] || exit 0
+          tail -n 40 test.log | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g;s/^/::error title=Test log (last 40 lines)::/'
+          grep '^FAIL - ' test.log | head -n 8 | sed 's/^FAIL - /::error title=Test failed::/' || true
+
   full:
     name: Firmware with Wi-Fi spectral scan (full source build)
     if: github.event_name == 'workflow_dispatch' && inputs.full
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Free disk space
         run: |
@@ -71,7 +91,7 @@ jobs:
       - name: Build
         run: ./build-full.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: slate-sdr-firmware-full
           path: out/firmware-full/
