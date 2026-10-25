@@ -101,3 +101,23 @@ jobs:
         with:
           name: slate-sdr-firmware-full
           path: out/firmware-full/
+
+      # Job logs are not always at hand: the failed steps and the end of
+      # their logs also go to annotations, and all build logs to an artifact.
+      - name: Report build failure
+        if: failure()
+        run: |
+          f=build/openwrt/logs/failure.txt
+          [ -f "$f" ] || exit 0
+          grep -o 'ERROR: [^ ]* failed to build' "$f" | sort -u | head -n 3 |
+            sed 's/^/::error title=Full build::/'
+          awk '/^== / { n++ } { print > ("part" n ".txt") }' "$f"
+          for p in $(ls part*.txt | sort -V | head -n 6); do
+            sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g;s/^/::error title=Full build log::/' "$p"
+          done
+
+      - uses: actions/upload-artifact@v6
+        if: failure()
+        with:
+          name: full-build-logs
+          path: build/openwrt/logs/

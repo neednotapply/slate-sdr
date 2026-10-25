@@ -50,8 +50,41 @@ if [ "${1:-}" = --config-only ]; then
 	exit 0
 fi
 
-make download -j8
-make -j"$(nproc)" || make -j1 V=s
+# Every step logs to logs/<step>/*.txt (BUILD_LOG). On failure, the failed
+# steps and the end of their logs go to logs/failure.txt and stderr.
+logs="$src/logs"
+mkdir -p "$logs"
+rm -f "$logs/failure.txt"
+
+report_failure() {
+	{
+		echo "== $1 failed. Failed steps:"
+		grep -o 'ERROR: [^ ]* failed to build' "$logs/make.log" | sort -u
+		grep -o 'ERROR: [^ ]* failed to build' "$logs/make.log" | cut -d' ' -f2 | sort -u |
+			while read -r step; do
+				for f in "$logs/$step"/*.txt; do
+					[ -f "$f" ] || continue
+					echo "== ${f#"$logs"/} (last 40 lines)"
+					tail -n 40 "$f"
+				done
+			done
+		echo "== make output (last 30 lines)"
+		tail -n 30 "$logs/make.log"
+	} | tee "$logs/failure.txt" >&2
+	exit 1
+}
+
+# run_make <what> <make arguments>: make with its output also in make.log
+run_make() {
+	what="$1"
+	shift
+	rm -f "$logs/make.rc"
+	{ make BUILD_LOG=1 "$@" 2>&1 || echo $? > "$logs/make.rc"; } | tee "$logs/make.log"
+	[ ! -s "$logs/make.rc" ] || report_failure "$what"
+}
+
+run_make "Download" download -j8
+run_make "Build" -j"$(nproc)"
 
 mkdir -p "$here/out/firmware-full"
 cp bin/targets/ath79/nand/*glinet_gl-ar750s-nor-nand*sysupgrade.bin \
