@@ -54,7 +54,7 @@ Two builds, from the same packages:
 | | `./build.sh` | `./build-full.sh` |
 |---|---|---|
 | How | OpenWrt SDK + ImageBuilder in Docker | full OpenWrt source build |
-| Time | ~15 min | 1–3 h, ~20 GB disk |
+| Time | ~10 min | ~40 min on GitHub's 4-core runners, ~20 GB disk |
 | Kernel | OpenWrt 25.12.6 release kernel | rebuilt with `CONFIG_RELAY` |
 | Wi-Fi spectral (`wifi` job) | no | yes |
 | 5 GHz driver | ath10k-ct (OpenWrt default) | upstream ath10k + Qualcomm firmware |
@@ -71,7 +71,7 @@ ls out/firmware-full/*sysupgrade.bin
 **On GitHub:** every push to `main` runs the *Build firmware* workflow,
 which builds both images and uploads them as artifacts:
 `slate-sdr-firmware` after about 5 minutes (with the tests), and
-`slate-sdr-firmware-full` after 1–3 hours. Pull requests get the quick build
+`slate-sdr-firmware-full` after about 40 minutes. Pull requests get the quick build
 only, and a newer push cancels the builds of an older one. *Actions → Build
 firmware → Run workflow* starts both by hand.
 
@@ -164,7 +164,7 @@ Tested in this repository's tests and builds:
   QEMU, and SoapySDR loads its HackRF and RTL-SDR modules.
 - `tests/rootfs-test.sh` covers every job, the init script, the CLI and the
   status page, against mock radios on that same userland: 87 checks.
-- The quick image builds on GitHub Actions, and the tests pass there.
+- Both images build on GitHub Actions, and the tests pass there.
 - The full build's configuration resolves: `./build-full.sh --config-only`
   keeps `CONFIG_KERNEL_RELAY`, the spectral options and upstream ath10k.
 
@@ -174,7 +174,6 @@ Not yet run:
   throughput over the router's USB, the card reader's write speed, and Wi-Fi
   spectral scan on this hardware. `ath10k` spectral on the QCA9887
   specifically has not been confirmed.
-- The full build end to end: its first run is under way on GitHub Actions.
 
 ## Layout
 

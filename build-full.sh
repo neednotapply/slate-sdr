@@ -1,7 +1,7 @@
 #!/bin/sh
 # Full OpenWrt source build of the slate-sdr firmware for the GL-AR750S
 # (NOR/NAND), with the kernel and Wi-Fi drivers rebuilt for spectral scan.
-# Takes 1-3 hours and about 20 GB of disk. Needs OpenWrt's build
+# Takes about 40 minutes on 4 cores and 20 GB of disk. Needs OpenWrt's build
 # prerequisites (https://openwrt.org/docs/guide-developer/toolchain/install-buildsystem)
 # and must not run as root.
 # Output: out/firmware-full/*-sysupgrade.bin
