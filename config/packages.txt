@@ -1,0 +1,21 @@
+# Packages added to OpenWrt's defaults for the GL-AR750S (both builds).
+# The device already brings kmod-usb2, kmod-usb-storage and block-mount.
+
+# The receivers, the SDR libraries and tools, and their service
+slate-sdr
+
+# Web interface for the router itself
+luci
+
+# The microSD card: exFAT (recommended), FAT32 or ext4
+kmod-fs-exfat
+kmod-fs-vfat
+kmod-fs-ext4
+kmod-nls-cp437
+kmod-nls-iso8859-1
+kmod-nls-utf8
+exfat-mkfs
+exfat-fsck
+
+# lsusb, for checking what is plugged in
+usbutils

@@ -1,0 +1,192 @@
+# slate-sdr
+
+OpenWrt firmware that turns a **GL.iNet GL-AR750S(-EXT) "Slate"** into a
+receiver station for an **RTL-SDR** and a **HackRF** on its USB port. It
+decodes and logs to the **microSD card** by itself, and it shares both radios
+over the network with SDR software on a computer.
+
+Nothing in this firmware transmits. HackRF boards with a dead transmit path
+work fine.
+
+| Job | Radio | What | Live | On the card |
+|---|---|---|---|---|
+| `soapy` | both | SoapySDR network server for SDR++, GQRX, CubicSDR, SDRangel, GNU Radio | `tcp://<router>:55132` | – |
+| `rtltcp` | RTL-SDR | rtl_tcp server (SDR#, SDR++, GQRX) | `<router>:1234` | – |
+| `adsb` | RTL-SDR | aircraft, 1090 MHz (dump1090) | map on `:8080`, SBS `:30003`, Beast `:30005` | aircraft table every minute |
+| `ism` | RTL-SDR | sensors, remotes, meters on 433/868/915 MHz (rtl_433, 200+ protocols) | `:8433` | JSON lines |
+| `ais` | RTL-SDR | ships, 162 MHz (rtl_ais) | NMEA on TCP `:10110` (OpenCPN) | NMEA |
+| `survey` | HackRF | spectrum sweep 1 MHz – 6 GHz (hackrf_sweep) | – | CSV, hourly, gzipped |
+| `rtlsurvey` | RTL-SDR | spectrum sweep 24 MHz – 1.7 GHz (rtl_power) | – | CSV, hourly, gzipped |
+| `iq` | either | raw IQ recording, continuous, in segments | – | SigMF (`.sigmf-data` + `.sigmf-meta`) |
+| `wifi` | built-in Wi-Fi | spectral scan of the 2.4 GHz (ath9k) and 5 GHz (ath10k) radios | – | raw FFT samples |
+
+Out of the box, `soapy`, `adsb` (RTL-SDR) and `survey` (HackRF, one sweep a
+minute) are on. Each radio runs one job at a time. Between survey sweeps the
+HackRF is free for network clients.
+
+## How this relates to w1700k-sdr
+
+[w1700k-sdr](https://github.com/h0m3us3r/w1700k-sdr) gets raw IQ out of a
+Wi-Fi 7 chip (the MT7996). That chip has an internal capture engine and
+radio firmware that can be replaced, and the router has 10 GbE to carry
+1.28 GB/s. The Slate's Qualcomm Atheros radios have neither feature, and a
+775 MHz MIPS CPU with USB 2.0 and gigabit Ethernet could not carry that rate
+anyway. What these radios do have is hardware **spectral scan**: FFT power
+readings rather than IQ. The `wifi` job uses it. Real IQ comes from the USB
+radios.
+
+## What you need
+
+- GL-AR750S or GL-AR750S-EXT. This firmware is OpenWrt's `NOR/NAND` variant,
+  which fits the layout of GL.iNet's firmware 3.x and later.
+- RTL-SDR and/or HackRF. The router has **one USB port**, so for both
+  radios use a **powered USB hub**: the HackRF draws about 500 mA by itself.
+- microSD card, **formatted exFAT and named `SLATESDR`** (format it on any
+  computer). FAT32 and ext4 also work. Without the card, jobs keep serving
+  the network and write nothing to the router's flash.
+- Antennas suited to what you want to receive: 1090 MHz for ADS-B, 433 or
+  868/915 MHz for ISM, 162 MHz for AIS.
+
+## Build
+
+Two builds, from the same packages:
+
+| | `./build.sh` | `./build-full.sh` |
+|---|---|---|
+| How | OpenWrt SDK + ImageBuilder in Docker | full OpenWrt source build |
+| Time | ~15 min | 1–3 h, ~20 GB disk |
+| Kernel | OpenWrt 25.12.6 release kernel | rebuilt with `CONFIG_RELAY` |
+| Wi-Fi spectral (`wifi` job) | no | yes |
+| 5 GHz driver | ath10k-ct (OpenWrt default) | upstream ath10k + Qualcomm firmware |
+
+```sh
+./build.sh                     # needs Docker
+ls out/firmware/*sysupgrade.bin
+
+./build-full.sh --config-only  # check the configuration (minutes)
+./build-full.sh                # needs OpenWrt's build prerequisites, not as root
+ls out/firmware-full/*sysupgrade.bin
+```
+
+**On GitHub:** push this repository and the *Build firmware* workflow runs
+`build.sh` and the tests, and uploads the firmware as an artifact. To get
+the spectral-scan build too, run the workflow by hand (*Actions → Build
+firmware → Run workflow*) and tick *full*.
+
+## Install
+
+1. In GL.iNet's admin page, save a backup of your settings, and download
+   GL.iNet's stock firmware for your model so you can go back.
+2. **Upgrade → Local upgrade**: upload the `…-sysupgrade.bin` and **untick
+   "Keep settings"**. Alternatively, copy it over SSH and run
+   `sysupgrade -n /tmp/<file>`.
+3. The router comes back as plain OpenWrt at `192.168.1.1`, with Wi-Fi off.
+   Set a root password in LuCI (`http://192.168.1.1/`).
+
+If it doesn't boot, GL.iNet's U-Boot has a recovery web page: hold reset
+while powering on, set your computer to `192.168.1.2/24`, open
+`http://192.168.1.1`, and upload the stock firmware. GL.iNet's "debrick"
+guide has the exact LED sequence for your U-Boot version. The
+[OpenWrt page for the GL-AR750S](https://openwrt.org/toh/gl.inet/gl-ar750s)
+covers both directions.
+
+## Use
+
+**Status page:** `http://192.168.1.1/cgi-bin/slate-sdr` shows the radios,
+card and jobs, with links to the aircraft map, the ISM live view and the
+recorded files (`http://192.168.1.1:8081/slate-sdr/`).
+
+**Over SSH:**
+
+```sh
+slate-sdr status                          # radios, card, jobs
+slate-sdr enable ism                      # (also: disable)
+slate-sdr record hackrf 433.92M 2M 30     # 30 s of IQ to the card, SigMF
+slate-sdr record rtlsdr 1090M 2.4M 10 --gain 40
+slate-sdr spectral                        # one Wi-Fi spectral scan (full build)
+slate-sdr log
+```
+
+Jobs are set in `/etc/config/slate-sdr` (frequencies, gains, intervals,
+rotation, `extra_args` for any receiver option). Run
+`/etc/init.d/slate-sdr restart` after editing. Only one job runs per radio:
+for example, to use the RTL-SDR for ISM, disable `adsb` and enable `ism`.
+
+**From a computer:**
+
+- **SDR++:** add a SoapySDR source with `driver=remote,remote=tcp://192.168.1.1:55132`,
+  or with the `rtltcp` job on, an RTL-TCP source at `192.168.1.1:1234`.
+  GQRX takes the same device string. SoapyRemote must be installed on the
+  computer.
+- The radio must be free: disable the job that holds it, or catch the
+  HackRF between `survey` sweeps.
+- Over the network, keep the HackRF at 8–10 Msps or below. USB 2.0 and the
+  router's CPU limit the rate; samples are sent in their native 8-bit
+  format, so the router does no conversion.
+
+**On the card** (`slate-sdr/<job>/<date>/`):
+
+| Files | Open with |
+|---|---|
+| `iq-*.sigmf-data/-meta` | inspectrum, Universal Radio Hacker, SigDigger, GNU Radio |
+| `sweep-*.csv.gz` | rtl_power/hackrf_sweep CSV: `heatmap.py`, QSpectrumAnalyzer |
+| `ism-*.json` | one JSON object per decoded message |
+| `aircraft-*.json(.gz)` | concatenated dump1090 `aircraft.json` snapshots (`jq`) |
+| `ais-*.nmea` | OpenCPN, gpsd, any AIS decoder |
+| `wifi/*/2g-*.bin`, `5g-*.bin` | [FFT_eval](https://github.com/simonwunderlich/FFT_eval) |
+
+## Good to know
+
+- **Clock:** the router has no real-time clock. File times are right once
+  it has synced over NTP (it needs internet access through its WAN port).
+- **Data rates to the card:** 2 Msps of IQ is 4 MB/s (14 GB an hour). The
+  card reader is on USB 2.0; check what your card sustains before
+  recording faster. Jobs stop writing below `min_free_mb` (256 MiB).
+- **Wi-Fi spectral scan** needs the full build, and a radio that isn't
+  serving an access point (OpenWrt ships with Wi-Fi off). Set your country
+  with `option country` in the `wifi` job.
+- **The law:** what you may receive, decode and record differs by country.
+
+## Tested so far, and what isn't
+
+Tested in this repository's tests and builds:
+
+- All packages cross-compile with the OpenWrt 25.12.6 SDK for this router
+  (`mips_24kc`). The binaries run on OpenWrt 25.12.6's MIPS userland under
+  QEMU, and SoapySDR loads its HackRF and RTL-SDR modules.
+- `tests/rootfs-test.sh` covers every job, the init script, the CLI and the
+  status page, against mock radios on that same userland: 87 checks.
+- The full build's configuration resolves: `./build-full.sh --config-only`
+  keeps `CONFIG_KERNEL_RELAY`, the spectral options and upstream ath10k.
+
+Not yet run:
+
+- On a real GL-AR750S, with real radios. Untested there: the radios'
+  throughput over the router's USB, the card reader's write speed, and Wi-Fi
+  spectral scan on this hardware. `ath10k` spectral on the QCA9887
+  specifically has not been confirmed.
+- The ImageBuilder stage and the full build end to end. They were written
+  in an environment that could not reach `downloads.openwrt.org`; the CI
+  workflow runs both.
+
+## Layout
+
+| Path | |
+|---|---|
+| `feed/` | OpenWrt package feed: `fftw3f`, `hackrf`, `soapysdr`, `soapy-hackrf`, `soapy-rtlsdr`, `soapy-remote`, `slate-sdr` |
+| `feed/utils/slate-sdr/files/` | the service: job runner, init script, CLI, status page, default config |
+| `config/packages.txt` | what goes into the image on top of OpenWrt's defaults |
+| `config/full.config` | full-build options (spectral scan, ath10k) |
+| `build.sh`, `scripts/` | the Docker build (SDK, then ImageBuilder) |
+| `build-full.sh` | the full source build |
+| `tests/` | runtime tests on OpenWrt's MIPS userland under QEMU |
+
+rtl-sdr, rtl_433, dump1090 and rtl-ais come from OpenWrt's own package
+feed.
+
+## Licence
+
+The scripts in `feed/utils/slate-sdr/files/` and `tests/`, and the build
+scripts, are MIT. The OpenWrt package Makefiles follow OpenWrt's
+GPL-2.0. Each packaged program keeps its own licence (in its Makefile's
+`PKG_LICENSE`).

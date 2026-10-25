@@ -1,0 +1,3 @@
+# SoapySDRServer asks for 42 MB socket buffers; allow 4 MB on this 128 MB router.
+net.core.rmem_max=4194304
+net.core.wmem_max=4194304
