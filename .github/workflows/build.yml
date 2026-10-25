@@ -5,11 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
-    inputs:
-      full:
-        description: "Also run the full source build with Wi-Fi spectral scan (1-3 hours)"
-        type: boolean
-        default: false
+
+# A newer push supersedes the builds of an older one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quick:
@@ -70,7 +70,9 @@ jobs:
 
   full:
     name: Firmware with Wi-Fi spectral scan (full source build)
-    if: github.event_name == 'workflow_dispatch' && inputs.full
+    # Every push to main and every manual run; pull requests get the quick
+    # build only.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
@@ -89,7 +91,11 @@ jobs:
             python3-setuptools rsync swig unzip zlib1g-dev file wget xsltproc
 
       - name: Build
-        run: ./build-full.sh
+        run: |
+          ./build-full.sh
+          for f in out/firmware-full/*sysupgrade.bin; do
+            echo "::notice title=Firmware (full)::$(basename "$f") ($(du -h "$f" | cut -f1))"
+          done
 
       - uses: actions/upload-artifact@v6
         with:

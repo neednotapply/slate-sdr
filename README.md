@@ -68,10 +68,18 @@ ls out/firmware/*sysupgrade.bin
 ls out/firmware-full/*sysupgrade.bin
 ```
 
-**On GitHub:** push this repository and the *Build firmware* workflow runs
-`build.sh` and the tests, and uploads the firmware as an artifact. To get
-the spectral-scan build too, run the workflow by hand (*Actions → Build
-firmware → Run workflow*) and tick *full*.
+**On GitHub:** every push to `main` runs the *Build firmware* workflow,
+which builds both images and uploads them as artifacts:
+`slate-sdr-firmware` after about 5 minutes (with the tests), and
+`slate-sdr-firmware-full` after 1–3 hours. Pull requests get the quick build
+only, and a newer push cancels the builds of an older one. *Actions → Build
+firmware → Run workflow* starts both by hand.
+
+Which to flash: the quick image keeps OpenWrt's release kernel, so kernel
+modules from OpenWrt's repository (`apk add kmod-…`) install on it. The full
+image has its own kernel, so modules for it have to be added to the build.
+Its 5 GHz radio also runs upstream ath10k instead of OpenWrt's default
+ath10k-ct. The radios, decoders and logging are the same in both.
 
 ## Install
 
@@ -156,6 +164,7 @@ Tested in this repository's tests and builds:
   QEMU, and SoapySDR loads its HackRF and RTL-SDR modules.
 - `tests/rootfs-test.sh` covers every job, the init script, the CLI and the
   status page, against mock radios on that same userland: 87 checks.
+- The quick image builds on GitHub Actions, and the tests pass there.
 - The full build's configuration resolves: `./build-full.sh --config-only`
   keeps `CONFIG_KERNEL_RELAY`, the spectral options and upstream ath10k.
 
@@ -165,9 +174,7 @@ Not yet run:
   throughput over the router's USB, the card reader's write speed, and Wi-Fi
   spectral scan on this hardware. `ath10k` spectral on the QCA9887
   specifically has not been confirmed.
-- The ImageBuilder stage and the full build end to end. They were written
-  in an environment that could not reach `downloads.openwrt.org`; the CI
-  workflow runs both.
+- The full build end to end: its first run is under way on GitHub Actions.
 
 ## Layout
 
