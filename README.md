@@ -104,6 +104,12 @@ covers both directions.
 card and jobs, with links to the aircraft map, the ISM live view and the
 recorded files (`http://192.168.1.1:8081/slate-sdr/`).
 
+**In LuCI:** *Services → Slate SDR* has the same status with every address
+the receivers serve, the aircraft map, the ISM devices rtl_433 has decoded
+(one row per device, with its latest readings) and the recorded files.
+Opening the *Aircraft map* or *ISM sensors* tab hands the RTL-SDR to that
+job. After installing or upgrading, log out of LuCI and back in once.
+
 **Over SSH:**
 
 ```sh
@@ -131,6 +137,15 @@ for example, to use the RTL-SDR for ISM, disable `adsb` and enable `ism`.
 - Over the network, keep the HackRF at 8–10 Msps or below. USB 2.0 and the
   router's CPU limit the rate; samples are sent in their native 8-bit
   format, so the router does no conversion.
+
+**Also in the image:**
+
+- **Ad blocking** for the router's clients (*Services → Adblock*). On a
+  router with 128 MB of RAM, start with one list such as OISD small.
+- **MQTT broker** (mosquitto, *Services → Mosquitto*). rtl_433 publishes what
+  it decodes to it with `option extra_args '-F mqtt://127.0.0.1:1883,retain=1'`
+  in the `ism` job, under `rtl_433/<hostname>/`.
+- **tcpdump** (mini) and **horst**, a Wi-Fi analyzer for monitor mode.
 
 **On the card** (`slate-sdr/<job>/<date>/`):
 
@@ -166,8 +181,9 @@ Tested in this repository's tests and builds:
 - All packages cross-compile with the OpenWrt 25.12.6 SDK for this router
   (`mips_24kc`). The binaries run on OpenWrt 25.12.6's MIPS userland under
   QEMU, and SoapySDR loads its HackRF and RTL-SDR modules.
-- `tests/rootfs-test.sh` covers every job, the init script, the CLI and the
-  status page, against mock radios on that same userland: 87 checks.
+- `tests/rootfs-test.sh` covers every job, the init script, the CLI, the
+  status page and the LuCI pages' rpcd calls, against mock radios on that
+  same userland: 97 checks.
 - Both images build on GitHub Actions, and the tests pass there.
 - The full build's configuration resolves: `./build-full.sh --config-only`
   keeps `CONFIG_KERNEL_RELAY`, the spectral options and upstream ath10k.
@@ -183,8 +199,9 @@ Not yet run:
 
 | Path | |
 |---|---|
-| `feed/` | OpenWrt package feed: `fftw3f`, `hackrf`, `soapysdr`, `soapy-hackrf`, `soapy-rtlsdr`, `soapy-remote`, `slate-sdr` |
+| `feed/` | OpenWrt package feed: `fftw3f`, `hackrf`, `soapysdr`, `soapy-hackrf`, `soapy-rtlsdr`, `soapy-remote`, `slate-sdr`, `luci-app-slate-sdr` |
 | `feed/utils/slate-sdr/files/` | the service: job runner, init script, CLI, status page, default config |
+| `feed/luci/luci-app-slate-sdr/` | the LuCI pages (`htdocs/`) and their rpcd plugin and ucode helper (`root/`) |
 | `config/packages.txt` | what goes into the image on top of OpenWrt's defaults |
 | `config/full.config` | full-build options (spectral scan, ath10k) |
 | `build.sh`, `scripts/` | the Docker build (SDK, then ImageBuilder) |

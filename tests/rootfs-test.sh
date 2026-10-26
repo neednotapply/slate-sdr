@@ -326,6 +326,44 @@ HTTP_HOST='10.0.0.5:80' /www/cgi-bin/slate-sdr > "$T/cgi.out" 2>&1
 check "cgi: links use the browser's host" grep -q 'remote=tcp://10.0.0.5:55132' "$T/cgi.out"
 check "cgi: status is HTML-escaped" grep -q 'Jobs:' "$T/cgi.out"
 
+echo "# LuCI pages (luci-app-slate-sdr)"
+cp "$T/slate-sdr.default" /etc/config/slate-sdr
+P=/usr/libexec/rpcd/luci.slate-sdr
+check "luci: menu and ACL are valid JSON" sh -c 'jsonfilter -i /usr/share/luci/menu.d/luci-app-slate-sdr.json -e "@" >/dev/null && jsonfilter -i /usr/share/rpcd/acl.d/luci-app-slate-sdr.json -e "@" >/dev/null'
+check "luci: plugin offers use and devices" [ "$("$P" list | jsonfilter -e '@.use.job') $("$P" list | jsonfilter -t '@.devices')" = "str object" ]
+
+# use_job <name>: the rpcd call, with the init script's reload stubbed
+use_job() { echo "{\"job\":\"$1\"}" | SLATE_INIT=true "$P" call use > "$T/use.out"; }
+use_field() { jsonfilter -i "$T/use.out" -e "@.$1"; }
+use_job ism
+check "luci use: hands the RTL-SDR to ism, stopping adsb" [ "$(use_field switched) $(use_field 'stopped[0]')" = "true adsb" ]
+check "luci use: config switched, HackRF job untouched" [ "$(uci get slate-sdr.ism.enabled)$(uci get slate-sdr.adsb.enabled)$(uci get slate-sdr.survey.enabled)" = 101 ]
+use_job ism
+check "luci use: nothing changes when the job holds the radio" [ "$(use_field switched)" = false ]
+use_job 'x; reboot'
+check "luci use: rejects a bad job name" [ "$(use_field error)" = "invalid job name" ]
+use_job nosuch
+check "luci use: rejects an unknown job" [ "$(use_field error)" = "no job 'nosuch' in /etc/config/slate-sdr" ]
+cp "$T/slate-sdr.default" /etc/config/slate-sdr
+
+# Two days of rtl_433 JSON lines, with a broken line and a cut-off one.
+I="$T/ism"
+mkdir -p "$I/2026-10-23" "$I/2026-10-24"
+cat > "$I/2026-10-23/ism-20261023.json" <<-'EOF'
+	{"time":"2026-10-23T22:00:00Z","model":"Acurite-Tower","id":1234,"channel":"A","battery_ok":1,"humidity":50,"freq":433.92}
+EOF
+cat > "$I/2026-10-24/ism-20261024.json" <<-'EOF'
+	{"time":"2026-10-24T12:00:00Z","model":"Acurite-Tower","id":1234,"channel":"A","battery_ok":1,"humidity":47,"freq":433.91}
+	not json
+	{"time":"2026-10-24T12:01:00Z","model":"Schrader","type":"TPMS","id":"1A2B3C4D","pressure_kPa":227,"freq":315.02}
+	{"time":"2026-10-24T12:02:00Z","model":"Acurite-Tower","id":1234,"cha
+EOF
+SLATE_ISM_DIR="$I" /usr/libexec/luci-slate-sdr-devices > "$T/devices.out" 2>&1
+dev() { jsonfilter -i "$T/devices.out" -e "@.$1"; }
+check "luci devices: one row per device, broken lines skipped" [ "$(dev decoded) $(dev 'devices[*].model' | xargs)" = "3 Acurite-Tower Schrader" ]
+check "luci devices: merged across days, latest readings" [ "$(dev 'devices[0].count') $(dev 'devices[0].readings.humidity') $(dev 'devices[0].first')" = "2 47 2026-10-23T22:00:00Z" ]
+check "luci devices: the ISM job's bands" [ "$(dev 'frequencies[0]') $(dev hop_interval)" = "433.92M 600" ]
+
 echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

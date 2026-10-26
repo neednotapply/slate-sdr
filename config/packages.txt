@@ -4,8 +4,23 @@
 # The receivers, the SDR libraries and tools, and their service
 slate-sdr
 
-# Web interface for the router itself
+# Web interface for the router itself, and slate-sdr's pages in it
+# (Services > Slate SDR)
 luci
+luci-app-slate-sdr
+
+# Ad blocking for the router's clients, through its DNS (dnsmasq)
+luci-app-adblock
+
+# MQTT broker, with its LuCI page and command-line clients; rtl_433 can
+# publish what it decodes to it
+mosquitto-nossl
+mosquitto-client-nossl
+luci-app-mosquitto
+
+# Packet capture, and a Wi-Fi analyzer for monitor mode
+tcpdump-mini
+horst
 
 # The microSD card: exFAT (recommended), FAT32 or ext4
 kmod-fs-exfat

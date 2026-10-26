@@ -23,7 +23,7 @@ trap 'rm -rf "$ov"' EXIT
 docker run --rm --user 0 -e OWNER="$(id -u):$(id -g)" \
 	-v "$pkgs:/pkgs:ro" -v "$ov:/ov" "$SDK_IMAGE" sh -c '
 	for f in /pkgs/*.apk; do
-		case "${f##*/}" in slate-sdr-*) continue ;; esac
+		case "${f##*/}" in slate-sdr-* | luci-app-slate-sdr-*) continue ;; esac
 		/builder/staging_dir/host/bin/apk extract --allow-untrusted --destination /ov "$f" > /dev/null
 	done
 	rm -rf /ov/lib/apk
@@ -41,11 +41,21 @@ cp "$f/status.cgi" "$ov/www/cgi-bin/slate-sdr"
 chmod 755 "$ov/etc/init.d/slate-sdr" "$ov/usr/libexec/slate-sdr-job" \
 	"$ov/usr/sbin/slate-sdr" "$ov/www/cgi-bin/slate-sdr"
 
+# luci-app-slate-sdr's scripts, from this tree too
+l="$here/feed/luci/luci-app-slate-sdr/root"
+mkdir -p "$ov/usr/libexec/rpcd" "$ov/usr/share/luci/menu.d" "$ov/usr/share/rpcd/acl.d"
+cp "$l/usr/libexec/rpcd/luci.slate-sdr" "$ov/usr/libexec/rpcd/"
+cp "$l/usr/libexec/luci-slate-sdr-devices" "$ov/usr/libexec/"
+cp "$l/usr/share/luci/menu.d/luci-app-slate-sdr.json" "$ov/usr/share/luci/menu.d/"
+cp "$l/usr/share/rpcd/acl.d/luci-app-slate-sdr.json" "$ov/usr/share/rpcd/acl.d/"
+chmod 755 "$ov/usr/libexec/rpcd/luci.slate-sdr" "$ov/usr/libexec/luci-slate-sdr-devices"
+
 # The decoders and libraries OpenWrt itself packages come from its
 # repository when online; offline, <directory> must hold them too.
 docker run --rm -v "$ov:/ov:ro" -v "$here/tests:/tests:ro" "$ROOTFS_IMAGE" sh -c '
 	if apk update > /dev/null 2>&1; then
-		apk add rtl-sdr rtl_433 rtl-ais libstdcpp6 libusb-1.0-0 > /tmp/apk.log 2>&1 ||
+		apk add rtl-sdr rtl_433 rtl-ais libstdcpp6 libusb-1.0-0 \
+			ucode ucode-mod-fs ucode-mod-uci > /tmp/apk.log 2>&1 ||
 			{ echo "apk add failed:"; cat /tmp/apk.log; }
 	else
 		echo "(offline: testing with the given packages only)"
