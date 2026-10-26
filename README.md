@@ -153,6 +153,10 @@ for example, to use the RTL-SDR for ISM, disable `adsb` and enable `ism`.
 - **Wi-Fi spectral scan** needs the full build, and a radio that isn't
   serving an access point (OpenWrt ships with Wi-Fi off). Set your country
   with `option country` in the `wifi` job.
+- **Monitor mode:** the built-in 2.4 GHz radio (ath9k) does it, and both
+  images include the driver for USB Wi-Fi adapters on Ralink's RT2800 chips
+  (RT3070, RT5370, RT5372, such as Panda's PAU05 and PAU06). The adapter
+  shares the USB port with the radios, so use the powered hub.
 - **The law:** what you may receive, decode and record differs by country.
 
 ## Tested so far, and what isn't

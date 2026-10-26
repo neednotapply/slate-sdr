@@ -19,3 +19,9 @@ exfat-fsck
 
 # lsusb, for checking what is plugged in
 usbutils
+
+# USB Wi-Fi adapters on the rt2800usb driver (Ralink RT3070, RT5370, RT5372;
+# e.g. Panda PAU05/PAU06), for monitor mode. Brings its firmware. The full
+# image's kernel is its own, so the driver has to be built in, not added
+# with apk.
+kmod-rt2800-usb

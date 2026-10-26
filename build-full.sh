@@ -37,7 +37,8 @@ make defconfig
 # defconfig drops what it cannot satisfy; stop rather than build without it.
 for opt in CONFIG_KERNEL_RELAY=y CONFIG_PACKAGE_ATH_SPECTRAL=y \
 	CONFIG_PACKAGE_kmod-ath10k=y CONFIG_PACKAGE_ath10k-firmware-qca9887=y \
-	CONFIG_PACKAGE_kmod-ath9k=y CONFIG_PACKAGE_slate-sdr=y CONFIG_PACKAGE_luci=y; do
+	CONFIG_PACKAGE_kmod-ath9k=y CONFIG_PACKAGE_slate-sdr=y CONFIG_PACKAGE_luci=y \
+	CONFIG_PACKAGE_kmod-rt2800-usb=y; do
 	grep -qx "$opt" .config || { echo "make defconfig dropped $opt" >&2; exit 1; }
 done
 if grep -qx 'CONFIG_PACKAGE_kmod-ath10k-ct=y' .config; then
