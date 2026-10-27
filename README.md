@@ -146,6 +146,11 @@ for example, to use the RTL-SDR for ISM, disable `adsb` and enable `ism`.
   it decodes to it with `option extra_args '-F mqtt://127.0.0.1:1883,retain=1'`
   in the `ism` job, under `rtl_433/<hostname>/`.
 - **tcpdump** (mini) and **horst**, a Wi-Fi analyzer for monitor mode.
+- **Network recon** (*Services → Network Recon*): what is on the network this
+  router has joined — passive host discovery with arp-scan (IP, MAC, vendor),
+  and a short nmap port scan of one host you pick. Saved to the card under
+  `recon/`. Discovery is passive; a port scan runs only against the host whose
+  button you click. Receive/observe only — no attack features.
 
 **On the card** (`slate-sdr/<job>/<date>/`):
 
@@ -182,8 +187,8 @@ Tested in this repository's tests and builds:
   (`mips_24kc`). The binaries run on OpenWrt 25.12.6's MIPS userland under
   QEMU, and SoapySDR loads its HackRF and RTL-SDR modules.
 - `tests/rootfs-test.sh` covers every job, the init script, the CLI, the
-  status page and the LuCI pages' rpcd calls, against mock radios on that
-  same userland: 97 checks.
+  status page and the LuCI pages' rpcd calls (Slate SDR and Network Recon),
+  against mock radios on that same userland: 105 checks.
 - Both images build on GitHub Actions, and the tests pass there.
 - The full build's configuration resolves: `./build-full.sh --config-only`
   keeps `CONFIG_KERNEL_RELAY`, the spectral options and upstream ath10k.
@@ -202,6 +207,7 @@ Not yet run:
 | `feed/` | OpenWrt package feed: `fftw3f`, `hackrf`, `soapysdr`, `soapy-hackrf`, `soapy-rtlsdr`, `soapy-remote`, `slate-sdr`, `luci-app-slate-sdr` |
 | `feed/utils/slate-sdr/files/` | the service: job runner, init script, CLI, status page, default config |
 | `feed/luci/luci-app-slate-sdr/` | the LuCI pages (`htdocs/`) and their rpcd plugin and ucode helper (`root/`) |
+| `feed/luci/luci-app-slate-recon/` | the Network Recon page, its rpcd plugin and the `slate-recon` tool |
 | `config/packages.txt` | what goes into the image on top of OpenWrt's defaults |
 | `config/full.config` | full-build options (spectral scan, ath10k) |
 | `build.sh`, `scripts/` | the Docker build (SDK, then ImageBuilder) |

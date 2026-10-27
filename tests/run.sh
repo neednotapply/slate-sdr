@@ -23,7 +23,7 @@ trap 'rm -rf "$ov"' EXIT
 docker run --rm --user 0 -e OWNER="$(id -u):$(id -g)" \
 	-v "$pkgs:/pkgs:ro" -v "$ov:/ov" "$SDK_IMAGE" sh -c '
 	for f in /pkgs/*.apk; do
-		case "${f##*/}" in slate-sdr-* | luci-app-slate-sdr-*) continue ;; esac
+		case "${f##*/}" in slate-sdr-* | luci-app-slate-sdr-* | luci-app-slate-recon-*) continue ;; esac
 		/builder/staging_dir/host/bin/apk extract --allow-untrusted --destination /ov "$f" > /dev/null
 	done
 	rm -rf /ov/lib/apk
@@ -49,6 +49,14 @@ cp "$l/usr/libexec/luci-slate-sdr-devices" "$ov/usr/libexec/"
 cp "$l/usr/share/luci/menu.d/luci-app-slate-sdr.json" "$ov/usr/share/luci/menu.d/"
 cp "$l/usr/share/rpcd/acl.d/luci-app-slate-sdr.json" "$ov/usr/share/rpcd/acl.d/"
 chmod 755 "$ov/usr/libexec/rpcd/luci.slate-sdr" "$ov/usr/libexec/luci-slate-sdr-devices"
+
+# luci-app-slate-recon's scripts, from this tree too
+r="$here/feed/luci/luci-app-slate-recon/root"
+cp "$r/usr/sbin/slate-recon" "$ov/usr/sbin/slate-recon"
+cp "$r/usr/libexec/rpcd/luci.slate-recon" "$ov/usr/libexec/rpcd/"
+cp "$r/usr/share/luci/menu.d/luci-app-slate-recon.json" "$ov/usr/share/luci/menu.d/"
+cp "$r/usr/share/rpcd/acl.d/luci-app-slate-recon.json" "$ov/usr/share/rpcd/acl.d/"
+chmod 755 "$ov/usr/sbin/slate-recon" "$ov/usr/libexec/rpcd/luci.slate-recon"
 
 # The decoders and libraries OpenWrt itself packages come from its
 # repository when online; offline, <directory> must hold them too.

@@ -28,6 +28,7 @@ jobs:
           shellcheck -s sh -e SC1091,SC2034,SC3043,SC2154 slate-sdr.init
           cd "$GITHUB_WORKSPACE"
           shellcheck -s sh -e SC1091,SC3043 feed/luci/luci-app-slate-sdr/root/usr/libexec/rpcd/luci.slate-sdr
+          shellcheck -s sh -e SC1091,SC3043 feed/luci/luci-app-slate-recon/root/usr/sbin/slate-recon feed/luci/luci-app-slate-recon/root/usr/libexec/rpcd/luci.slate-recon
           shellcheck -s sh build.sh build-full.sh scripts/*.sh tests/run.sh
           shellcheck -s sh -e SC3043,SC2016,SC2012,SC1091,SC2015 tests/rootfs-test.sh
 

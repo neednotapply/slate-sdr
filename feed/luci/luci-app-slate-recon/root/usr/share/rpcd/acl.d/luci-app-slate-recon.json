@@ -1,0 +1,15 @@
+{
+	"luci-app-slate-recon": {
+		"description": "Grant access to network recon: the joined network and a host scan",
+		"read": {
+			"ubus": {
+				"luci.slate-recon": [ "uplink", "hosts" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"luci.slate-recon": [ "discover", "ports" ]
+			}
+		}
+	}
+}

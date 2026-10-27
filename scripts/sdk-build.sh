@@ -33,6 +33,7 @@ cat > .config <<-CONFIG
 	CONFIG_PACKAGE_soapy-remote-server=m
 	CONFIG_PACKAGE_slate-sdr=m
 	CONFIG_PACKAGE_luci-app-slate-sdr=m
+	CONFIG_PACKAGE_luci-app-slate-recon=m
 CONFIG
 quiet make defconfig
 
@@ -44,7 +45,7 @@ done
 # slate-sdr and its LuCI pages are scripts only: package them without
 # building their run-time dependencies, which the ImageBuilder takes from
 # OpenWrt's repository.
-for p in slate-sdr luci-app-slate-sdr; do
+for p in slate-sdr luci-app-slate-sdr luci-app-slate-recon; do
 	echo "-- $p"
 	quiet make -C "package/feeds/slatesdr/$p" TOPDIR="$PWD" compile
 done

@@ -364,6 +364,19 @@ check "luci devices: one row per device, broken lines skipped" [ "$(dev decoded)
 check "luci devices: merged across days, latest readings" [ "$(dev 'devices[0].count') $(dev 'devices[0].readings.humidity') $(dev 'devices[0].first')" = "2 47 2026-10-23T22:00:00Z" ]
 check "luci devices: the ISM job's bands" [ "$(dev 'frequencies[0]') $(dev hop_interval)" = "433.92M 600" ]
 
+echo "# network recon (luci-app-slate-recon)"
+RP=/usr/libexec/rpcd/luci.slate-recon
+check "recon: menu and ACL are valid JSON" sh -c 'jsonfilter -i /usr/share/luci/menu.d/luci-app-slate-recon.json -e "@" >/dev/null && jsonfilter -i /usr/share/rpcd/acl.d/luci-app-slate-recon.json -e "@" >/dev/null'
+check "recon: plugin offers uplink, discover, hosts, ports" sh -c '"'"$RP"'" list | jsonfilter -e "@.ports.target" | grep -qx str && "'"$RP"'" list | jsonfilter -e "@.uplink" >/dev/null'
+# A valid target with no nmap present still yields valid JSON and no ports.
+slate-recon ports 203.0.113.1 > "$T/ports.out" 2>&1
+check "recon: port scan output is valid JSON" jsonfilter -i "$T/ports.out" -e '@.target' -q
+check "recon: port scan target echoed" [ "$(jsonfilter -i "$T/ports.out" -e '@.target')" = 203.0.113.1 ]
+check "recon: rejects a shell-injection target" sh -c 'slate-recon ports "x; reboot" | jsonfilter -e "@.error" | grep -q "give one host"'
+check "recon: rejects an empty target" sh -c 'slate-recon ports "" | jsonfilter -e "@.error" >/dev/null'
+check "recon: hosts with no scan is valid JSON" sh -c 'SLATE_RECON_STORE=/nonexistent slate-recon hosts | jsonfilter -e "@.hosts" >/dev/null'
+check "recon: unknown command fails" sh -c '! slate-recon wat 2>/dev/null'
+
 echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

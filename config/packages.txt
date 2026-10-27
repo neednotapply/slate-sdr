@@ -22,6 +22,10 @@ luci-app-mosquitto
 tcpdump-mini
 horst
 
+# Network recon of the network this router joins, in LuCI (Services >
+# Network Recon). Pulls arp-scan, its OUI database, nmap and ip-full.
+luci-app-slate-recon
+
 # The microSD card: exFAT (recommended), FAT32 or ext4
 kmod-fs-exfat
 kmod-fs-vfat

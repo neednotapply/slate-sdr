@@ -1,0 +1,10 @@
+{
+	"admin/services/slate-recon": {
+		"title": "Network Recon",
+		"order": 55,
+		"action": {
+			"type": "view",
+			"path": "slate-recon/recon"
+		}
+	}
+}
