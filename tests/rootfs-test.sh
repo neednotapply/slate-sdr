@@ -377,6 +377,32 @@ check "recon: rejects an empty target" sh -c 'slate-recon ports "" | jsonfilter 
 check "recon: hosts with no scan is valid JSON" sh -c 'SLATE_RECON_STORE=/nonexistent slate-recon hosts | jsonfilter -e "@.hosts" >/dev/null'
 check "recon: unknown command fails" sh -c '! slate-recon wat 2>/dev/null'
 
+echo "# Wi-Fi survey (slate-survey-merge database)"
+M=/usr/libexec/slate-survey-merge
+SV="$T/survey"
+rm -rf "$SV"
+check "recon: plugin offers the survey methods" sh -c '"'"$RP"'" list | jsonfilter -e "@.survey_scan" >/dev/null && "'"$RP"'" list | jsonfilter -e "@.survey_clear" >/dev/null'
+# First scan: two access points, one hidden.
+printf '%s\n%s\n' \
+	'{"bssid":"aa:bb:cc:dd:ee:ff","ssid":"Home","freq":2412,"channel":1,"signal":-60,"security":"WPA2"}' \
+	'{"bssid":"11:22:33:44:55:66","ssid":"","freq":5180,"channel":36,"signal":-70,"security":"WPA3"}' |
+	SLATE_SURVEY_STORE="$SV" SLATE_SURVEY_TIME=2026-10-24T12:00:00Z SLATE_SURVEY_PHY=phy1 "$M" scan > "$T/sv1.out"
+check "survey: first scan saved both" sh -c '[ "$(jsonfilter -i '"$T"'/sv1.out -e "@.found") $(jsonfilter -i '"$T"'/sv1.out -e "@.total") $(jsonfilter -i '"$T"'/sv1.out -e "@.saved")" = "2 2 true" ]'
+check "survey: no GPS -> null position" sh -c '[ "$(jsonfilter -i '"$T"'/sv1.out -e "@.gps")" = "" ]'
+# Second scan: Home again, stronger, plus a broken line that must be skipped.
+printf '%s\n%s\n%s\n' \
+	'{"bssid":"aa:bb:cc:dd:ee:ff","ssid":"Home","freq":2412,"channel":1,"signal":-45,"security":"WPA2"}' \
+	'not json' \
+	'{"bssid":"99:99:99:99:99:99","ssid":"Cafe","freq":2437,"channel":6,"signal":-80,"security":"Open"}' |
+	SLATE_SURVEY_STORE="$SV" SLATE_SURVEY_TIME=2026-10-24T12:05:00Z SLATE_SURVEY_PHY=phy1 "$M" scan > "$T/sv2.out"
+check "survey: broken line skipped, new AP added" sh -c '[ "$(jsonfilter -i '"$T"'/sv2.out -e "@.found") $(jsonfilter -i '"$T"'/sv2.out -e "@.total")" = "2 3" ]'
+SLATE_SURVEY_STORE="$SV" "$M" networks > "$T/svn.out"
+check "survey: three networks logged, newest first" sh -c '[ "$(jsonfilter -i '"$T"'/svn.out -e "@.total") $(jsonfilter -i '"$T"'/svn.out -e "@.networks[0].bssid")" = "3 aa:bb:cc:dd:ee:ff" ]'
+check "survey: Home merged (count 2, strongest -45, first kept)" sh -c '[ "$(jsonfilter -i '"$T"'/svn.out -e "@.networks[0].count") $(jsonfilter -i '"$T"'/svn.out -e "@.networks[0].best_signal") $(jsonfilter -i '"$T"'/svn.out -e "@.networks[0].first")" = "2 -45 2026-10-24T12:00:00Z" ]'
+check "survey: wardrive log has a line per sighting" sh -c '[ "$(wc -l < "$(ls '"$SV"'/survey-*.ndjson)")" = 4 ]'
+check "survey: clear empties the database" sh -c 'SLATE_SURVEY_STORE="'"$SV"'" "'"$M"'" clear >/dev/null; [ "$(SLATE_SURVEY_STORE="'"$SV"'" "'"$M"'" networks | jsonfilter -e "@.total")" = 0 ]'
+check "survey: unknown command fails" sh -c '! "'"$M"'" wat 2>/dev/null'
+
 echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

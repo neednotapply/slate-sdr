@@ -6,12 +6,16 @@
 #   ubus call luci.slate-recon discover                   hosts on it (arp-scan)
 #   ubus call luci.slate-recon hosts                      the last discover
 #   ubus call luci.slate-recon ports '{"target":"1.2.3.4"}'  one host (nmap -F)
+#   ubus call luci.slate-recon survey_scan                   one Wi-Fi scan
+#   ubus call luci.slate-recon survey_networks               access points seen
+#   ubus call luci.slate-recon survey_clear                  forget them
 #
-# slate-recon prints a JSON object for each, which is the ubus reply.
+# slate-recon / slate-survey print a JSON object for each, the ubus reply.
 
 . /usr/share/libubox/jshn.sh
 
 RECON=${SLATE_RECON:-/usr/sbin/slate-recon}
+SURVEY=${SLATE_SURVEY:-/usr/sbin/slate-survey}
 
 run_ports() {
 	local input target
@@ -24,14 +28,17 @@ run_ports() {
 
 case "$1" in
 list)
-	echo '{ "uplink": {}, "discover": {}, "hosts": {}, "ports": { "target": "str" } }'
+	echo '{ "uplink": {}, "discover": {}, "hosts": {}, "ports": { "target": "str" }, "survey_scan": {}, "survey_networks": {}, "survey_clear": {} }'
 	;;
 call)
 	case "$2" in
-	uplink)   "$RECON" uplink ;;
-	discover) "$RECON" discover ;;
-	hosts)    "$RECON" hosts ;;
-	ports)    run_ports ;;
+	uplink)          "$RECON" uplink ;;
+	discover)        "$RECON" discover ;;
+	hosts)           "$RECON" hosts ;;
+	ports)           run_ports ;;
+	survey_scan)     "$SURVEY" scan ;;
+	survey_networks) "$SURVEY" networks ;;
+	survey_clear)    "$SURVEY" clear ;;
 	esac
 	;;
 esac

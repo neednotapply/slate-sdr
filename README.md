@@ -146,11 +146,19 @@ for example, to use the RTL-SDR for ISM, disable `adsb` and enable `ism`.
   it decodes to it with `option extra_args '-F mqtt://127.0.0.1:1883,retain=1'`
   in the `ism` job, under `rtl_433/<hostname>/`.
 - **tcpdump** (mini) and **horst**, a Wi-Fi analyzer for monitor mode.
-- **Network recon** (*Services → Network Recon*): what is on the network this
-  router has joined — passive host discovery with arp-scan (IP, MAC, vendor),
-  and a short nmap port scan of one host you pick. Saved to the card under
-  `recon/`. Discovery is passive; a port scan runs only against the host whose
-  button you click. Receive/observe only — no attack features.
+- **Network recon** (*Services → Network Recon*):
+  - **Hosts:** what is on the network this router has joined — passive host
+    discovery with arp-scan (IP, MAC, vendor), and a short nmap port scan of
+    one host you pick. Discovery is passive; a port scan runs only against the
+    host whose button you click.
+  - **Wi-Fi Survey:** a wardriving-style log of the access points the Slate
+    hears, scanned on a free radio (the USB adapter by default, so the uplink
+    and the Pirate Radio AP keep running) and kept with first/last seen,
+    strongest signal, channel and security; each sighting carries a GPS
+    position when a gpsd is running.
+
+  Saved to the card under `recon/` and `survey/`. Receive/observe only — no
+  attack features.
 
 **On the card** (`slate-sdr/<job>/<date>/`):
 
@@ -187,8 +195,9 @@ Tested in this repository's tests and builds:
   (`mips_24kc`). The binaries run on OpenWrt 25.12.6's MIPS userland under
   QEMU, and SoapySDR loads its HackRF and RTL-SDR modules.
 - `tests/rootfs-test.sh` covers every job, the init script, the CLI, the
-  status page and the LuCI pages' rpcd calls (Slate SDR and Network Recon),
-  against mock radios on that same userland: 105 checks.
+  status page and the LuCI pages' rpcd calls (Slate SDR and Network Recon,
+  including the Wi-Fi survey database), against mock radios on that same
+  userland: 114 checks.
 - Both images build on GitHub Actions, and the tests pass there.
 - The full build's configuration resolves: `./build-full.sh --config-only`
   keeps `CONFIG_KERNEL_RELAY`, the spectral options and upstream ath10k.
@@ -207,7 +216,7 @@ Not yet run:
 | `feed/` | OpenWrt package feed: `fftw3f`, `hackrf`, `soapysdr`, `soapy-hackrf`, `soapy-rtlsdr`, `soapy-remote`, `slate-sdr`, `luci-app-slate-sdr` |
 | `feed/utils/slate-sdr/files/` | the service: job runner, init script, CLI, status page, default config |
 | `feed/luci/luci-app-slate-sdr/` | the LuCI pages (`htdocs/`) and their rpcd plugin and ucode helper (`root/`) |
-| `feed/luci/luci-app-slate-recon/` | the Network Recon page, its rpcd plugin and the `slate-recon` tool |
+| `feed/luci/luci-app-slate-recon/` | the Network Recon pages (Hosts, Wi-Fi Survey), their rpcd plugin and the `slate-recon` / `slate-survey` tools |
 | `config/packages.txt` | what goes into the image on top of OpenWrt's defaults |
 | `config/full.config` | full-build options (spectral scan, ath10k) |
 | `build.sh`, `scripts/` | the Docker build (SDK, then ImageBuilder) |

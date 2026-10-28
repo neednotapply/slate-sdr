@@ -21,15 +21,17 @@ define Package/luci-app-slate-recon
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=Network recon in LuCI (Services > Network Recon)
-  DEPENDS:=+luci-base +rpcd +arp-scan +arp-scan-database +nmap +ip-full
+  DEPENDS:=+luci-base +rpcd +ucode +ucode-mod-fs +arp-scan +arp-scan-database +nmap +ip-full +iw
   PKGARCH:=all
 endef
 
 define Package/luci-app-slate-recon/description
-  Services > Network Recon in LuCI: what is on the network this router has
-  joined. Passive host discovery with arp-scan (IP, MAC, vendor), and a
-  short nmap port scan of a single host you pick. Results are saved to the
-  microSD card under recon/.
+  Services > Network Recon in LuCI. "Hosts": what is on the network this
+  router has joined — passive host discovery with arp-scan (IP, MAC, vendor)
+  and a short nmap port scan of a single host you pick. "Wi-Fi Survey": a
+  wardriving-style log of the access points the Slate hears, scanned on a
+  free radio and kept with first/last seen, signal, channel and security
+  (plus GPS when a gpsd runs). Results are saved to the microSD card.
 endef
 
 define Build/Prepare
@@ -49,9 +51,11 @@ define Package/luci-app-slate-recon/install
 	$(INSTALL_DIR) $(1)/usr/share/luci/menu.d $(1)/usr/share/rpcd/acl.d
 	$(INSTALL_DATA) ./root/usr/share/luci/menu.d/luci-app-slate-recon.json $(1)/usr/share/luci/menu.d/
 	$(INSTALL_DATA) ./root/usr/share/rpcd/acl.d/luci-app-slate-recon.json $(1)/usr/share/rpcd/acl.d/
-	$(INSTALL_DIR) $(1)/usr/libexec/rpcd $(1)/usr/sbin
+	$(INSTALL_DIR) $(1)/usr/libexec/rpcd $(1)/usr/libexec $(1)/usr/sbin
 	$(INSTALL_BIN) ./root/usr/libexec/rpcd/luci.slate-recon $(1)/usr/libexec/rpcd/
+	$(INSTALL_BIN) ./root/usr/libexec/slate-survey-merge $(1)/usr/libexec/
 	$(INSTALL_BIN) ./root/usr/sbin/slate-recon $(1)/usr/sbin/
+	$(INSTALL_BIN) ./root/usr/sbin/slate-survey $(1)/usr/sbin/
 endef
 
 # On a running router: rebuild LuCI's menu and load the rpcd plugin and ACL.
