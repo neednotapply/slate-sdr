@@ -55,12 +55,13 @@ r="$here/feed/luci/luci-app-slate-recon/root"
 cp "$r/usr/sbin/slate-recon" "$ov/usr/sbin/slate-recon"
 cp "$r/usr/sbin/slate-survey" "$ov/usr/sbin/slate-survey"
 cp "$r/usr/sbin/slate-threats" "$ov/usr/sbin/slate-threats"
+cp "$r/usr/sbin/slate-dashboard" "$ov/usr/sbin/slate-dashboard"
 cp "$r/usr/libexec/slate-survey-merge" "$ov/usr/libexec/slate-survey-merge"
 cp "$r/usr/libexec/rpcd/luci.slate-recon" "$ov/usr/libexec/rpcd/"
 cp "$r/usr/share/luci/menu.d/luci-app-slate-recon.json" "$ov/usr/share/luci/menu.d/"
 cp "$r/usr/share/rpcd/acl.d/luci-app-slate-recon.json" "$ov/usr/share/rpcd/acl.d/"
 chmod 755 "$ov/usr/sbin/slate-recon" "$ov/usr/sbin/slate-survey" "$ov/usr/sbin/slate-threats" \
-	"$ov/usr/libexec/slate-survey-merge" "$ov/usr/libexec/rpcd/luci.slate-recon"
+	"$ov/usr/sbin/slate-dashboard" "$ov/usr/libexec/slate-survey-merge" "$ov/usr/libexec/rpcd/luci.slate-recon"
 
 # The decoders and libraries OpenWrt itself packages come from its
 # repository when online; offline, <directory> must hold them too.

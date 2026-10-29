@@ -147,6 +147,10 @@ for example, to use the RTL-SDR for ISM, disable `adsb` and enable `ism`.
   in the `ism` job, under `rtl_433/<hostname>/`.
 - **tcpdump** (mini) and **horst**, a Wi-Fi analyzer for monitor mode.
 - **Network recon** (*Services → Network Recon*):
+  - **Dashboard:** one glance at where the Slate is and what it sees — the
+    joined network and whether it is online, hosts and access points logged,
+    GPS, threats, the radios and the running SDR jobs, each tile linking to
+    its tab.
   - **Hosts:** what is on the network this router has joined — passive host
     discovery with arp-scan (IP, MAC, vendor), and a short nmap port scan of
     one host you pick. Discovery is passive; a port scan runs only against the
@@ -203,8 +207,8 @@ Tested in this repository's tests and builds:
   QEMU, and SoapySDR loads its HackRF and RTL-SDR modules.
 - `tests/rootfs-test.sh` covers every job, the init script, the CLI, the
   status page and the LuCI pages' rpcd calls (Slate SDR and Network Recon,
-  including the Wi-Fi survey database, GPS status and threat detection),
-  against mock radios on that same userland: 129 checks.
+  including the Wi-Fi survey database, GPS status, threat detection and the dashboard),
+  against mock radios on that same userland: 133 checks.
 - Both images build on GitHub Actions, and the tests pass there.
 - The full build's configuration resolves: `./build-full.sh --config-only`
   keeps `CONFIG_KERNEL_RELAY`, the spectral options and upstream ath10k.
@@ -223,7 +227,7 @@ Not yet run:
 | `feed/` | OpenWrt package feed: `fftw3f`, `hackrf`, `soapysdr`, `soapy-hackrf`, `soapy-rtlsdr`, `soapy-remote`, `slate-sdr`, `luci-app-slate-sdr` |
 | `feed/utils/slate-sdr/files/` | the service: job runner, init script, CLI, status page, default config |
 | `feed/luci/luci-app-slate-sdr/` | the LuCI pages (`htdocs/`) and their rpcd plugin and ucode helper (`root/`) |
-| `feed/luci/luci-app-slate-recon/` | the Network Recon pages (Hosts, Wi-Fi Survey, Threats), their rpcd plugin and the `slate-recon` / `slate-survey` / `slate-threats` tools |
+| `feed/luci/luci-app-slate-recon/` | the Network Recon pages (Dashboard, Hosts, Wi-Fi Survey, Threats), their rpcd plugin and the `slate-recon` / `slate-survey` / `slate-threats` / `slate-dashboard` tools |
 | `config/packages.txt` | what goes into the image on top of OpenWrt's defaults |
 | `config/full.config` | full-build options (spectral scan, ath10k) |
 | `build.sh`, `scripts/` | the Docker build (SDK, then ImageBuilder) |

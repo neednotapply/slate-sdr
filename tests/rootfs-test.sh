@@ -458,6 +458,26 @@ check "threats: a deauth flood raises the alert" sh -c 'for i in $(seq 12); do e
 check "threats: quiet air does not alert" sh -c 'printf "" | slate-threats deauth-report 15 6 mon0 | jsonfilter -e "@.alert" | grep -qx false'
 check "threats: deauth rejects a bad window" sh -c 'slate-threats deauth abc | jsonfilter -e "@.error" >/dev/null'
 
+echo "# recon dashboard (slate-dashboard)"
+slate-dashboard > "$T/dash.json" 2>/dev/null
+check "dashboard: output is valid JSON" jsonfilter -i "$T/dash.json" -e '@.uplink' -q
+check "dashboard: has all the sections" sh -c "[ \"\$(jsonfilter -i $T/dash.json -e '@.uplink' -e '@.hosts' -e '@.survey' -e '@.threats' -e '@.gps' -e '@.radios' | wc -l)\" -ge 6 ]"
+# Radios parse from iwinfo: the real Mode, not the trailing "HT Mode:".
+DM="$T/dashmock"; mkdir -p "$DM"
+{
+	echo '#!/bin/sh'
+	echo 'cat <<EOX'
+	echo 'mon0      ESSID: unknown'
+	echo '          Mode: Monitor  Channel: 10 (2.457 GHz)  HT Mode: null'
+	echo 'wlan0     ESSID: "Pirate Radio"'
+	echo '          Mode: Master  Channel: 36 (5.180 GHz)  HT Mode: VHT80'
+	echo 'EOX'
+} > "$DM/iwinfo"
+chmod +x "$DM/iwinfo"
+PATH="$DM:$PATH" slate-dashboard > "$T/dash2.json" 2>/dev/null
+check "dashboard: radios take the Mode, not the HT Mode" sh -c "[ \"\$(jsonfilter -i $T/dash2.json -e '@.radios[*].mode' | tr '\n' ' ')\" = 'Monitor Master ' ]"
+check "dashboard: radios keep the SSID and channel" sh -c "[ \"\$(jsonfilter -i $T/dash2.json -e '@.radios[1].ssid') \$(jsonfilter -i $T/dash2.json -e '@.radios[0].channel')\" = 'Pirate Radio 10' ]"
+
 echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

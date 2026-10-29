@@ -7,6 +7,15 @@
 		}
 	},
 
+	"admin/services/slate-recon/dashboard": {
+		"title": "Dashboard",
+		"order": 5,
+		"action": {
+			"type": "view",
+			"path": "slate-recon/dashboard"
+		}
+	},
+
 	"admin/services/slate-recon/hosts": {
 		"title": "Hosts",
 		"order": 10,
