@@ -403,6 +403,37 @@ check "survey: wardrive log has a line per sighting" sh -c '[ "$(wc -l < "$(ls '
 check "survey: clear empties the database" sh -c 'SLATE_SURVEY_STORE="'"$SV"'" "'"$M"'" clear >/dev/null; [ "$(SLATE_SURVEY_STORE="'"$SV"'" "'"$M"'" networks | jsonfilter -e "@.total")" = 0 ]'
 check "survey: unknown command fails" sh -c '! "'"$M"'" wat 2>/dev/null'
 
+echo "# Wi-Fi survey GPS (slate-survey gps, gpspipe mocked)"
+GM="$T/gpsmock"; mkdir -p "$GM"
+# gpspipe is not installed in the test image, so a plain call reports that.
+check "gps: reports not installed when gpspipe is missing" sh -c '[ "$(slate-survey gps | jsonfilter -e "@.installed")" = false ]'
+# gpsd not reachable: gpspipe prints nothing.
+printf '#!/bin/sh\nexit 0\n' > "$GM/gpspipe"; chmod +x "$GM/gpspipe"
+check "gps: gpsd down -> running false" sh -c "[ \"\$(PATH=$GM:\$PATH slate-survey gps | jsonfilter -e '@.running')\" = false ]"
+# gpsd up, no fix: VERSION/DEVICES/WATCH only.
+printf '#!/bin/sh\nprintf "%%s\\n" %s %s %s\n' \
+	"'{\"class\":\"VERSION\"}'" "'{\"class\":\"DEVICES\",\"devices\":[]}'" "'{\"class\":\"WATCH\"}'" > "$GM/gpspipe"
+chmod +x "$GM/gpspipe"
+check "gps: running, no fix" sh -c "[ \"\$(PATH=$GM:\$PATH slate-survey gps | jsonfilter -e '@.running') \$(PATH=$GM:\$PATH slate-survey gps | jsonfilter -e '@.fix')\" = 'true none' ]"
+# gpsd up, 3D fix with satellites and a position.
+{
+	echo '#!/bin/sh'
+	echo 'cat <<EOF'
+	echo '{"class":"VERSION"}'
+	echo '{"class":"DEVICES","devices":[{"class":"DEVICE","path":"/dev/ttyACM0"}]}'
+	echo '{"class":"SKY","nSat":11,"uSat":7}'
+	echo '{"class":"TPV","device":"/dev/ttyACM0","mode":3,"lat":37.421998,"lon":-122.084000,"alt":12.3}'
+	echo 'EOF'
+} > "$GM/gpspipe"
+chmod +x "$GM/gpspipe"
+PATH="$GM:$PATH" slate-survey gps > "$T/gps.out"
+check "gps: 3D fix with device and satellites" sh -c "[ \"\$(jsonfilter -i $T/gps.out -e '@.fix') \$(jsonfilter -i $T/gps.out -e '@.device') \$(jsonfilter -i $T/gps.out -e '@.sats_used')\" = '3D /dev/ttyACM0 7' ]"
+check "gps: 3D fix reports the position" sh -c "[ \"\$(jsonfilter -i $T/gps.out -e '@.lat') \$(jsonfilter -i $T/gps.out -e '@.lon')\" = '37.421998 -122.084000' ]"
+# A scan sighting with a GPS position tags the network.
+printf '%s\n' '{"bssid":"de:ad:be:ef:00:01","ssid":"Mobile","freq":2412,"channel":1,"signal":-55,"security":"WPA2"}' |
+	SLATE_SURVEY_STORE="$T/gpssurv" SLATE_SURVEY_TIME=2026-10-24T13:00:00Z SLATE_SURVEY_LAT=37.42 SLATE_SURVEY_LON=-122.08 "$M" scan > "$T/gpsm.out"
+check "gps: a located sighting tags the network" sh -c "[ \"\$(jsonfilter -i $T/gpsm.out -e '@.gps.lat') \$(jsonfilter -i $T/gpsm.out -e '@.networks[0].lat')\" = '37.420 37.420' ]"
+
 echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

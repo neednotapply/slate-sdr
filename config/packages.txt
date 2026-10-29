@@ -23,8 +23,21 @@ tcpdump-mini
 horst
 
 # Network recon of the network this router joins, in LuCI (Services >
-# Network Recon). Pulls arp-scan, its OUI database, nmap and ip-full.
+# Network Recon). Pulls arp-scan, its OUI database, nmap, ip-full and iw.
 luci-app-slate-recon
+
+# GPS for the Wi-Fi survey's wardriving positions: gpsd and gpspipe, plus the
+# kernel drivers a USB GPS enumerates with (CDC-ACM for u-blox; the common
+# USB-serial chips). The full image's kernel is its own, so these kmods must
+# be built in. gpsd stays idle until a GPS is plugged in.
+gpsd
+gpsd-clients
+kmod-usb-acm
+kmod-usb-serial
+kmod-usb-serial-pl2303
+kmod-usb-serial-cp210x
+kmod-usb-serial-ftdi
+kmod-usb-serial-ch341
 
 # The microSD card: exFAT (recommended), FAT32 or ext4
 kmod-fs-exfat

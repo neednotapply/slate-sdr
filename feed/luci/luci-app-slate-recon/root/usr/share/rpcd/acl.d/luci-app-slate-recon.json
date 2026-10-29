@@ -3,7 +3,7 @@
 		"description": "Grant access to network recon: the joined network and a host scan",
 		"read": {
 			"ubus": {
-				"luci.slate-recon": [ "uplink", "hosts", "survey_networks" ]
+				"luci.slate-recon": [ "uplink", "hosts", "survey_networks", "survey_gps" ]
 			}
 		},
 		"write": {

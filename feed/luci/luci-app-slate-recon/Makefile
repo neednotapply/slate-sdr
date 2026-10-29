@@ -56,6 +56,8 @@ define Package/luci-app-slate-recon/install
 	$(INSTALL_BIN) ./root/usr/libexec/slate-survey-merge $(1)/usr/libexec/
 	$(INSTALL_BIN) ./root/usr/sbin/slate-recon $(1)/usr/sbin/
 	$(INSTALL_BIN) ./root/usr/sbin/slate-survey $(1)/usr/sbin/
+	$(INSTALL_DIR) $(1)/etc/uci-defaults
+	$(INSTALL_BIN) ./root/etc/uci-defaults/95-slate-recon-gpsd $(1)/etc/uci-defaults/
 endef
 
 # On a running router: rebuild LuCI's menu and load the rpcd plugin and ACL.

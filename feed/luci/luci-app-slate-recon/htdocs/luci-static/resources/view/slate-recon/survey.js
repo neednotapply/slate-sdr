@@ -14,6 +14,21 @@
 var callScan = rpc.declare({ object: 'luci.slate-recon', method: 'survey_scan' });
 var callNetworks = rpc.declare({ object: 'luci.slate-recon', method: 'survey_networks' });
 var callClear = rpc.declare({ object: 'luci.slate-recon', method: 'survey_clear' });
+var callGps = rpc.declare({ object: 'luci.slate-recon', method: 'survey_gps' });
+
+function gpsText(g) {
+	if (!g || g.installed === false)
+		return _('No GPS tools installed. Add a USB GPS and gpsd to tag sightings with a position for wardriving.');
+	if (!g.running)
+		return _('gpsd is not running. Plug in a USB GPS (it is started on boot), or enable it under Services if it stays off.');
+	var where = g.device ? _(' on %s').format(g.device) : '';
+	if (g.fix == '2D' || g.fix == '3D')
+		return _('GPS fix (%s)%s: %s, %s%s. Each sighting is tagged with the position.').format(
+			g.fix, where, g.lat.toFixed(6), g.lon.toFixed(6),
+			(g.sats_used != null) ? _(' — %d of %d satellites').format(g.sats_used, g.sats || 0) : '');
+	return _('gpsd is running%s but has no fix yet%s. Give it a clear view of the sky; positions appear once it locks on.').format(
+		where, (g.sats != null) ? _(' (%d satellites seen)').format(g.sats) : '');
+}
 
 function catchError(err) {
 	return { error: err.message };
@@ -45,14 +60,18 @@ function ago(time, now) {
 
 return view.extend({
 	load: function() {
-		return callNetworks().catch(catchError);
+		return Promise.all([
+			callNetworks().catch(catchError),
+			callGps().catch(catchError)
+		]);
 	},
 
-	render: function(data) {
+	render: function(res) {
+		var data = res[0], gps = res[1];
 		var self = this;
 		var status = E('span', { 'style': 'margin-left:1em; color:#888' });
 		var table = E('table', { 'class': 'table' });
-		var hasGps = (data.networks || []).some(function(n) { return n.lat != null; });
+		var gpsLine = E('p', {}, gpsText(gps));
 
 		function fill(data) {
 			var nets = (data && data.networks) || [];
@@ -92,6 +111,7 @@ return view.extend({
 
 		fill(data);
 		this.fill = fill;
+		this.gpsLine = gpsLine;
 
 		return E('div', {}, [
 			E('h2', {}, _('Wi-Fi Survey')),
@@ -116,9 +136,13 @@ return view.extend({
 
 			E('div', { 'class': 'cbi-section' }, [
 				E('h3', {}, _('Location')),
-				E('p', {}, hasGps
-					? _('Positions come from a GPS. Each sighting in the wardrive log on the card carries a latitude and longitude.')
-					: _('No GPS is running, so sightings have no position. Plug in a USB GPS and install gpsd, and scans will tag each network with a location for wardriving.'))
+				gpsLine,
+				E('p', {}, [
+					E('button', {
+						'class': 'btn cbi-button',
+						'click': ui.createHandlerFn(this, 'refreshGps')
+					}, _('Refresh GPS'))
+				])
 			])
 		]);
 	},
@@ -136,7 +160,17 @@ return view.extend({
 					res.gps ? _(', with GPS') : (res.saved ? '' : _(' (not saved: no card)')))
 				: _('Scan done.');
 			ui.addNotification(null, E('p', {}, msg), 'info');
-			return callNetworks().catch(catchError).then(function(data) { self.fill(data); });
+			return Promise.all([
+				callNetworks().catch(catchError).then(function(data) { self.fill(data); }),
+				callGps().catch(catchError).then(function(g) { dom.content(self.gpsLine, gpsText(g)); })
+			]);
+		});
+	},
+
+	refreshGps: function() {
+		var self = this;
+		return callGps().catch(catchError).then(function(g) {
+			dom.content(self.gpsLine, gpsText(g));
 		});
 	},
 

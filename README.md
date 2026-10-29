@@ -154,8 +154,10 @@ for example, to use the RTL-SDR for ISM, disable `adsb` and enable `ism`.
   - **Wi-Fi Survey:** a wardriving-style log of the access points the Slate
     hears, scanned on a free radio (the USB adapter by default, so the uplink
     and the Pirate Radio AP keep running) and kept with first/last seen,
-    strongest signal, channel and security; each sighting carries a GPS
-    position when a gpsd is running.
+    strongest signal, channel and security. The image bundles **gpsd** and the
+    USB GPS kernel drivers (CDC-ACM and the common serial chips), enabled on
+    first boot: plug in a USB GPS and each sighting is tagged with a position,
+    with a live GPS status shown on the tab.
 
   Saved to the card under `recon/` and `survey/`. Receive/observe only — no
   attack features.
@@ -196,8 +198,8 @@ Tested in this repository's tests and builds:
   QEMU, and SoapySDR loads its HackRF and RTL-SDR modules.
 - `tests/rootfs-test.sh` covers every job, the init script, the CLI, the
   status page and the LuCI pages' rpcd calls (Slate SDR and Network Recon,
-  including the Wi-Fi survey database), against mock radios on that same
-  userland: 114 checks.
+  including the Wi-Fi survey database and GPS status), against mock radios on
+  that same userland: 120 checks.
 - Both images build on GitHub Actions, and the tests pass there.
 - The full build's configuration resolves: `./build-full.sh --config-only`
   keeps `CONFIG_KERNEL_RELAY`, the spectral options and upstream ath10k.

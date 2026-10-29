@@ -9,6 +9,7 @@
 #   ubus call luci.slate-recon survey_scan                   one Wi-Fi scan
 #   ubus call luci.slate-recon survey_networks               access points seen
 #   ubus call luci.slate-recon survey_clear                  forget them
+#   ubus call luci.slate-recon survey_gps                    GPS status
 #
 # slate-recon / slate-survey print a JSON object for each, the ubus reply.
 
@@ -28,7 +29,7 @@ run_ports() {
 
 case "$1" in
 list)
-	echo '{ "uplink": {}, "discover": {}, "hosts": {}, "ports": { "target": "str" }, "survey_scan": {}, "survey_networks": {}, "survey_clear": {} }'
+	echo '{ "uplink": {}, "discover": {}, "hosts": {}, "ports": { "target": "str" }, "survey_scan": {}, "survey_networks": {}, "survey_clear": {}, "survey_gps": {} }'
 	;;
 call)
 	case "$2" in
@@ -39,6 +40,7 @@ call)
 	survey_scan)     "$SURVEY" scan ;;
 	survey_networks) "$SURVEY" networks ;;
 	survey_clear)    "$SURVEY" clear ;;
+	survey_gps)      "$SURVEY" gps ;;
 	esac
 	;;
 esac
