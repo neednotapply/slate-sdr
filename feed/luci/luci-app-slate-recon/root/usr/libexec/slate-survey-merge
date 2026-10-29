@@ -140,8 +140,63 @@ function doClear() {
 	print(sprintf('%J\n', { cleared: n }));
 }
 
+// Rogue / evil-twin analysis over the logged networks. "Protected" SSIDs
+// (your own) come in on stdin, one per line. Flags an SSID advertised both
+// open and secured (a classic open clone), a protected SSID seen open, or a
+// protected SSID on more than one access point.
+function doThreats() {
+	let db = loadDB();
+	let protect = {};
+	let line;
+	while ((line = stdin.read('line')) != null) {
+		line = replace(line, /\n$/, '');
+		if (line != '') protect[line] = true;
+	}
+
+	let groups = {};
+	for (let k, d in db) {
+		if (!d.ssid || d.ssid == '')
+			continue;
+		let g = groups[d.ssid];
+		if (!g) g = groups[d.ssid] = { ssid: d.ssid, bssids: [], secs: {} };
+		push(g.bssids, { bssid: d.bssid, security: d.security, signal: d.best_signal, channel: d.channel });
+		g.secs[d.security ?? '?'] = true;
+	}
+
+	let threats = [];
+	for (let ssid, g in groups) {
+		let secs = keys(g.secs);
+		let hasOpen = g.secs['Open'] ? true : false;
+		let hasSecured = false;
+		for (let s in secs)
+			if (s != 'Open' && s != '?') hasSecured = true;
+		let isProtected = protect[ssid] ? true : false;
+
+		if (hasOpen && hasSecured)
+			push(threats, { type: 'evil_twin', severity: 'high', ssid: ssid,
+				detail: 'This name is advertised both open and secured — an open clone of a protected network.',
+				security: secs, bssids: g.bssids });
+		else if (isProtected && hasOpen)
+			push(threats, { type: 'impersonation', severity: 'high', ssid: ssid,
+				detail: 'One of your networks is being advertised with no security.',
+				security: secs, bssids: g.bssids });
+		else if (isProtected && length(g.bssids) > 1)
+			push(threats, { type: 'extra_bssid', severity: 'medium', ssid: ssid,
+				detail: 'Your network name is on more than one access point — check these are all yours.',
+				security: secs, bssids: g.bssids });
+	}
+
+	print(sprintf('%J\n', {
+		generated: getenv('SLATE_SURVEY_TIME') ?? '',
+		protected: keys(protect),
+		total_networks: length(db),
+		threats: threats
+	}));
+}
+
 const cmd = ARGV[0];
 if (cmd == 'scan') doScan();
 else if (cmd == 'networks') doNetworks();
 else if (cmd == 'clear') doClear();
-else { warn('usage: slate-survey-merge {scan|networks|clear}\n'); exit(1); }
+else if (cmd == 'threats') doThreats();
+else { warn('usage: slate-survey-merge {scan|networks|clear|threats}\n'); exit(1); }

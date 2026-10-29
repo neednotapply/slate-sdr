@@ -434,6 +434,30 @@ printf '%s\n' '{"bssid":"de:ad:be:ef:00:01","ssid":"Mobile","freq":2412,"channel
 	SLATE_SURVEY_STORE="$T/gpssurv" SLATE_SURVEY_TIME=2026-10-24T13:00:00Z SLATE_SURVEY_LAT=37.42 SLATE_SURVEY_LON=-122.08 "$M" scan > "$T/gpsm.out"
 check "gps: a located sighting tags the network" sh -c "[ \"\$(jsonfilter -i $T/gpsm.out -e '@.gps.lat') \$(jsonfilter -i $T/gpsm.out -e '@.networks[0].lat')\" = '37.420 37.420' ]"
 
+echo "# threat detection (rogue analysis + deauth parser)"
+TR="$T/threats"; mkdir -p "$TR"
+cat > "$TR/networks.json" <<'JSON'
+{
+ "aa:aa:aa:aa:aa:01":{"bssid":"aa:aa:aa:aa:aa:01","ssid":"HomeNet","security":"WPA2","best_signal":-50,"channel":6,"count":3,"first":"x","last":"y"},
+ "bb:bb:bb:bb:bb:02":{"bssid":"bb:bb:bb:bb:bb:02","ssid":"HomeNet","security":"Open","best_signal":-40,"channel":6,"count":1,"first":"x","last":"y"},
+ "cc:cc:cc:cc:cc:03":{"bssid":"cc:cc:cc:cc:cc:03","ssid":"MyNet","security":"Open","best_signal":-60,"channel":1,"count":1,"first":"x","last":"y"},
+ "dd:dd:dd:dd:dd:04":{"bssid":"dd:dd:dd:dd:dd:04","ssid":"Cafe","security":"Open","best_signal":-70,"channel":11,"count":1,"first":"x","last":"y"}
+}
+JSON
+printf '%s\n' MyNet | SLATE_SURVEY_STORE="$TR" SLATE_SURVEY_TIME=2026-10-24T18:00:00Z "$M" threats > "$TR/out.json"
+check "threats: evil-twin and impersonation both flagged" sh -c "[ \"\$(jsonfilter -i $TR/out.json -e '@.threats[*].type' | sort | tr '\n' ' ')\" = 'evil_twin impersonation ' ]"
+check "threats: the flagged SSIDs are HomeNet and MyNet" sh -c "[ \"\$(jsonfilter -i $TR/out.json -e '@.threats[*].ssid' | sort | tr '\n' ' ')\" = 'HomeNet MyNet ' ]"
+check "threats: a legitimate open network is not flagged" sh -c "! jsonfilter -i $TR/out.json -e '@.threats[*].ssid' | grep -qx Cafe"
+check "threats: reports the protected SSID" sh -c "[ \"\$(jsonfilter -i $TR/out.json -e '@.protected[0]')\" = MyNet ]"
+# Deauth parser: sample tcpdump -e frames on stdin (no monitor radio needed).
+printf '%s\n' 'a SA:de:ad:be:ef:00:01 DeAuthentication x' 'a SA:de:ad:be:ef:00:01 DeAuthentication x' 'a SA:ca:fe:00:00:00:02 Disassociation x' |
+	slate-threats deauth-report 15 6 mon0 > "$TR/d.json"
+check "threats: deauth parser counts frames by type" sh -c "[ \"\$(jsonfilter -i $TR/d.json -e '@.total') \$(jsonfilter -i $TR/d.json -e '@.deauth') \$(jsonfilter -i $TR/d.json -e '@.disassoc')\" = '3 2 1' ]"
+check "threats: deauth parser aggregates the top source" sh -c "[ \"\$(jsonfilter -i $TR/d.json -e '@.sources[0].mac') \$(jsonfilter -i $TR/d.json -e '@.sources[0].count')\" = 'de:ad:be:ef:00:01 2' ]"
+check "threats: a deauth flood raises the alert" sh -c 'for i in $(seq 12); do echo "x SA:ba:ad:00:00:00:0f DeAuthentication y"; done | slate-threats deauth-report 20 6 mon0 | jsonfilter -e "@.alert" | grep -qx true'
+check "threats: quiet air does not alert" sh -c 'printf "" | slate-threats deauth-report 15 6 mon0 | jsonfilter -e "@.alert" | grep -qx false'
+check "threats: deauth rejects a bad window" sh -c 'slate-threats deauth abc | jsonfilter -e "@.error" >/dev/null'
+
 echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

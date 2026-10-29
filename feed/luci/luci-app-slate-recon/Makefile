@@ -21,7 +21,7 @@ define Package/luci-app-slate-recon
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=Network recon in LuCI (Services > Network Recon)
-  DEPENDS:=+luci-base +rpcd +ucode +ucode-mod-fs +arp-scan +arp-scan-database +nmap +ip-full +iw
+  DEPENDS:=+luci-base +rpcd +ucode +ucode-mod-fs +arp-scan +arp-scan-database +nmap +ip-full +iw +tcpdump-mini
   PKGARCH:=all
 endef
 
@@ -31,7 +31,9 @@ define Package/luci-app-slate-recon/description
   and a short nmap port scan of a single host you pick. "Wi-Fi Survey": a
   wardriving-style log of the access points the Slate hears, scanned on a
   free radio and kept with first/last seen, signal, channel and security
-  (plus GPS when a gpsd runs). Results are saved to the microSD card.
+  (plus GPS when a gpsd runs). "Threats": passive detection of evil-twin /
+  rogue access points over the survey data, and of deauthentication floods
+  on the monitor radio. Results are saved to the microSD card.
 endef
 
 define Build/Prepare
@@ -56,6 +58,7 @@ define Package/luci-app-slate-recon/install
 	$(INSTALL_BIN) ./root/usr/libexec/slate-survey-merge $(1)/usr/libexec/
 	$(INSTALL_BIN) ./root/usr/sbin/slate-recon $(1)/usr/sbin/
 	$(INSTALL_BIN) ./root/usr/sbin/slate-survey $(1)/usr/sbin/
+	$(INSTALL_BIN) ./root/usr/sbin/slate-threats $(1)/usr/sbin/
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./root/etc/uci-defaults/95-slate-recon-gpsd $(1)/etc/uci-defaults/
 endef
