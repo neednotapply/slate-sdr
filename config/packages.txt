@@ -39,6 +39,13 @@ kmod-usb-serial-cp210x
 kmod-usb-serial-ftdi
 kmod-usb-serial-ch341
 
+# WireGuard, to tunnel back home over an untrusted uplink. The kernel module
+# must be built into the full image (its kernel is its own); the tools and
+# the LuCI protocol let you set the tunnel up in Network > Interfaces.
+kmod-wireguard
+wireguard-tools
+luci-proto-wireguard
+
 # The microSD card: exFAT (recommended), FAT32 or ext4
 kmod-fs-exfat
 kmod-fs-vfat
