@@ -8,7 +8,7 @@
 		},
 		"write": {
 			"ubus": {
-				"luci.slate-recon": [ "discover", "ports", "survey_scan", "survey_clear", "threats_deauth" ]
+				"luci.slate-recon": [ "discover", "ports", "scan", "survey_scan", "survey_clear", "threats_deauth" ]
 			}
 		}
 	}

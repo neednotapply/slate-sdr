@@ -32,6 +32,16 @@ run_ports() {
 	"$RECON" ports "$target"
 }
 
+run_scan() {
+	local input profile target
+	read -r input
+	json_load "$input"
+	json_get_var profile profile
+	json_get_var target target
+	# slate-recon validates the profile and target.
+	"$RECON" scan "$profile" "$target"
+}
+
 run_deauth() {
 	local input secs
 	read -r input
@@ -43,7 +53,7 @@ run_deauth() {
 
 case "$1" in
 list)
-	echo '{ "dashboard": {}, "uplink": {}, "discover": {}, "hosts": {}, "ports": { "target": "str" }, "survey_scan": {}, "survey_networks": {}, "survey_clear": {}, "survey_gps": {}, "threats_rogue": {}, "threats_deauth": { "secs": 0 } }'
+	echo '{ "dashboard": {}, "uplink": {}, "discover": {}, "hosts": {}, "ports": { "target": "str" }, "scan": { "profile": "str", "target": "str" }, "survey_scan": {}, "survey_networks": {}, "survey_clear": {}, "survey_gps": {}, "threats_rogue": {}, "threats_deauth": { "secs": 0 } }'
 	;;
 call)
 	case "$2" in
@@ -52,6 +62,7 @@ call)
 	discover)        "$RECON" discover ;;
 	hosts)           "$RECON" hosts ;;
 	ports)           run_ports ;;
+	scan)            run_scan ;;
 	survey_scan)     "$SURVEY" scan ;;
 	survey_networks) "$SURVEY" networks ;;
 	survey_clear)    "$SURVEY" clear ;;

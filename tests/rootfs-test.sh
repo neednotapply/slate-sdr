@@ -478,6 +478,71 @@ PATH="$DM:$PATH" slate-dashboard > "$T/dash2.json" 2>/dev/null
 check "dashboard: radios take the Mode, not the HT Mode" sh -c "[ \"\$(jsonfilter -i $T/dash2.json -e '@.radios[*].mode' | tr '\n' ' ')\" = 'Monitor Master ' ]"
 check "dashboard: radios keep the SSID and channel" sh -c "[ \"\$(jsonfilter -i $T/dash2.json -e '@.radios[1].ssid') \$(jsonfilter -i $T/dash2.json -e '@.radios[0].channel')\" = 'Pirate Radio 10' ]"
 
+echo "# recon scan profiles (slate-recon scan, nmap mocked)"
+check "scan: valid JSON without nmap" sh -c 'slate-recon scan quick 203.0.113.1 | jsonfilter -e "@.profile" -q'
+check "scan: rejects a shell-injection target" sh -c 'slate-recon scan quick "x; reboot" | jsonfilter -e "@.error" | grep -q "give a host"'
+check "scan: rejects an unknown profile" sh -c 'slate-recon scan bogus 203.0.113.1 | jsonfilter -e "@.error" | grep -q "unknown profile"'
+check "scan: rpcd plugin offers scan" sh -c '"'"$RP"'" list | jsonfilter -e "@.scan.profile" | grep -qx str'
+# A mock nmap emitting grepable output, so the parser can be checked.
+NM="$T/nmapmock"; mkdir -p "$NM"
+cat > "$NM/nmap" <<'NMAP'
+#!/bin/sh
+out=; prev=
+for a in "$@"; do [ "$prev" = "-oN" ] && out=$a; prev=$a; done
+gen() {
+	case " $* " in
+	*" -sn "*) printf 'Host: 192.168.1.10 ()\tStatus: Up\nHost: 192.168.1.23 ()\tStatus: Up\n' ;;
+	*" -sV "*) printf 'Host: 192.168.1.10 ()\tPorts: 22/open/tcp//ssh//OpenSSH 9.6/\tIgnored State: closed (99)\n' ;;
+	*) printf 'Host: 192.168.1.10 ()\tPorts: 22/open/tcp//ssh//, 80/open/tcp//http//\tIgnored State: closed (98)\n' ;;
+	esac
+}
+[ -n "$out" ] && gen "$@" > "$out"
+gen "$@"
+NMAP
+chmod +x "$NM/nmap"
+PATH="$NM:$PATH" slate-recon scan quick 192.168.1.10 > "$T/scanq.out"
+check "scan: parses hosts and ports" sh -c "[ \"\$(jsonfilter -i $T/scanq.out -e '@.hosts[0].ip') \$(jsonfilter -i $T/scanq.out -e '@.hosts[0].ports[*].service' | tr '\n' ' ')\" = '192.168.1.10 ssh http ' ]"
+PATH="$NM:$PATH" slate-recon scan service 192.168.1.10 > "$T/scans.out"
+check "scan: service profile keeps the version" sh -c "[ \"\$(jsonfilter -i $T/scans.out -e '@.hosts[0].ports[0].version')\" = 'OpenSSH 9.6' ]"
+PATH="$NM:$PATH" slate-recon scan ping 192.168.1.0/24 > "$T/scanp.out"
+check "scan: ping sweep lists hosts up" sh -c "[ \"\$(jsonfilter -i $T/scanp.out -e '@.hosts[*].ip' | tr '\n' ' ')\" = '192.168.1.10 192.168.1.23 ' ]"
+RS="$T/reconstore"; mkdir -p "$RS"
+PATH="$NM:$PATH" SLATE_RECON_STORE="$RS" slate-recon scan quick 192.168.1.10 >/dev/null
+check "scan: saves a readable copy and a JSON log" sh -c "ls '$RS'/scan-quick-*.txt >/dev/null 2>&1 && [ -s '$RS/scans.ndjson' ]"
+
+echo "# slate-ui: router basics (slate-router)"
+RR=/usr/libexec/rpcd/luci.slate-router
+check "router: ACL is valid JSON" jsonfilter -i /usr/share/rpcd/acl.d/luci-app-slate-router.json -e '@' -q
+check "router: rpcd plugin offers status, clients, adblock" sh -c '"'"$RR"'" list | jsonfilter -e "@.status" >/dev/null && "'"$RR"'" list | jsonfilter -e "@.clients" >/dev/null && "'"$RR"'" list | jsonfilter -e "@.adblock" >/dev/null'
+check "router: status has a positive memory total" sh -c '[ "$(slate-router status | jsonfilter -e "@.memory.total")" -gt 0 ]'
+check "router: status online is a boolean" sh -c 'slate-router status | jsonfilter -e "@.online" | grep -qxE "true|false"'
+printf '%s\n' '1700000000 b8:27:eb:aa:bb:cc 192.168.1.10 raspberrypi *' '1700000000 3c:22:fb:12:34:56 192.168.1.23 * *' > "$T/leases"
+SLATE_LEASES="$T/leases" slate-router clients > "$T/clients.out"
+check "router: clients parsed from the leases (unknown host -> -)" sh -c "[ \"\$(jsonfilter -i $T/clients.out -e '@.clients[0].host') \$(jsonfilter -i $T/clients.out -e '@.clients[0].ip') \$(jsonfilter -i $T/clients.out -e '@.clients[1].host')\" = 'raspberrypi 192.168.1.10 -' ]"
+check "router: no leases file -> empty list" sh -c "[ \"\$(SLATE_LEASES=/nonexistent slate-router clients | jsonfilter -e '@.clients[*].ip' | wc -l)\" = 0 ]"
+check "router: adblock reports installed false when absent" sh -c 'slate-router adblock | jsonfilter -e "@.installed" | grep -qx false'
+check "router: unknown command yields an error" sh -c 'slate-router wat | jsonfilter -e "@.error" >/dev/null'
+
+echo "# slate-ui: capture workbench (slate-capture)"
+RC=/usr/libexec/rpcd/luci.slate-capture
+check "capture: ACL is valid JSON" jsonfilter -i /usr/share/rpcd/acl.d/luci-app-slate-capture.json -e '@' -q
+check "capture: rpcd plugin offers start and status" sh -c '"'"$RC"'" list | jsonfilter -e "@.start.iface" | grep -qx str && "'"$RC"'" list | jsonfilter -e "@.status" >/dev/null'
+check "capture: interfaces is valid JSON" sh -c 'slate-capture interfaces | jsonfilter -e "@" >/dev/null'
+check "capture: idle status" sh -c 'slate-capture status | jsonfilter -e "@.running" | grep -qx false'
+check "capture: list is valid JSON" sh -c 'slate-capture list | jsonfilter -e "@" >/dev/null'
+check "capture: start rejects an unknown interface" sh -c 'slate-capture start nosuchif0 "" "" | jsonfilter -e "@.error" | grep -q "no such interface"'
+check "capture: start rejects a filter with metacharacters" sh -c 'slate-capture start lo "; reboot" "" | jsonfilter -e "@.error" | grep -q "disallowed"'
+
+echo "# slate-ui: passive handshake capture (slate-handshake)"
+RH=/usr/libexec/rpcd/luci.slate-handshake
+check "handshake: ACL is valid JSON" jsonfilter -i /usr/share/rpcd/acl.d/luci-app-slate-handshake.json -e '@' -q
+check "handshake: rpcd plugin offers start and radios" sh -c '"'"$RH"'" list | jsonfilter -e "@.start.channel" | grep -qx str && "'"$RH"'" list | jsonfilter -e "@.radios" >/dev/null'
+check "handshake: radios is valid JSON" sh -c 'slate-handshake radios | jsonfilter -e "@" >/dev/null'
+check "handshake: idle status" sh -c 'slate-handshake status | jsonfilter -e "@.running" | grep -qx false'
+check "handshake: start rejects a non-numeric channel" sh -c 'slate-handshake start phy0 abc "" | jsonfilter -e "@.error" | grep -q "channel must be a number"'
+check "handshake: start rejects a channel out of range" sh -c 'slate-handshake start phy0 999 "" | jsonfilter -e "@.error" | grep -q "out of range"'
+check "handshake: start rejects an unknown radio" sh -c 'slate-handshake start nosuchphy 6 "" | jsonfilter -e "@.error" | grep -q "no such radio"'
+
 echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

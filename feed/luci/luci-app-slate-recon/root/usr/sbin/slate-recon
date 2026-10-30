@@ -133,10 +133,91 @@ cmd_ports() {
 	d=$(store_dir) && printf '%s\n' "$ports" >> "$d/ports-$(date -u +%Y%m%d).ndjson"
 }
 
+# cmd_scan <profile> <target>: an nmap scan with a named profile, against one
+# host you name or a subnet (CIDR). Profiles: quick (top 100), top1000, service
+# (version detection), ping (host liveness). Results are JSON and a readable
+# copy is saved to the card. A port scan is active and needs an explicit target.
+cmd_scan() {
+	local profile="$1" target="$2" d saved grep_out out first=1 hostline ip portsfield e port proto svc ver pfirst oifs
+
+	case "$target" in
+	''|*[!A-Za-z0-9.:_/-]*) echo '{ "error": "give a host or subnet to scan: an IP, name, or CIDR" }'; return ;;
+	esac
+	# Build nmap flags as positional parameters (profile/target are already saved).
+	case "$profile" in
+	quick)   set -- -F -T4 --open ;;
+	top1000) set -- -T4 --open ;;
+	service) set -- -sV --version-light -F -T4 --open ;;
+	ping)    set -- -sn -T4 ;;
+	*) echo '{ "error": "unknown profile" }'; return ;;
+	esac
+
+	d=$(store_dir)
+	saved=
+	[ -n "$d" ] && saved="scan-$profile-$(date -u +%Y%m%d-%H%M%S).txt"
+
+	# One nmap run: grepable to stdout, plus a readable copy to the card.
+	if [ -n "$saved" ]; then
+		grep_out=$(nmap "$@" -oG - -oN "$d/$saved" "$target" 2>/dev/null)
+	else
+		grep_out=$(nmap "$@" -oG - "$target" 2>/dev/null)
+	fi
+
+	out="{ \"scanned\": \"$(now)\", \"profile\": \"$(esc "$profile")\", \"target\": \"$(esc "$target")\", \"saved\": \"$(esc "${saved:-}")\", \"hosts\": ["
+
+	if [ "$profile" = ping ]; then
+		while IFS= read -r hostline; do
+			ip=$(printf '%s' "$hostline" | awk '{print $2}')
+			[ -n "$ip" ] || continue
+			[ "$first" = 1 ] || out="$out,"
+			first=0
+			out="$out { \"ip\": \"$(esc "$ip")\" }"
+		done <<-EOF
+		$(printf '%s\n' "$grep_out" | grep '^Host:.*Status: Up')
+		EOF
+	else
+		while IFS= read -r hostline; do
+			ip=$(printf '%s' "$hostline" | awk '{print $2}')
+			[ -n "$ip" ] || continue
+			portsfield=$(printf '%s' "$hostline" | awk -F'\t' '{for(i=1;i<=NF;i++) if($i ~ /^Ports: /){sub(/^Ports: /,"",$i); print $i}}')
+			[ "$first" = 1 ] || out="$out,"
+			first=0
+			out="$out { \"ip\": \"$(esc "$ip")\", \"ports\": ["
+			pfirst=1
+			oifs=$IFS
+			IFS=,
+			for e in $portsfield; do
+				e=$(printf '%s' "$e" | sed 's/^ *//; s/ *$//')
+				case "$e" in
+				*/open/*)
+					port=$(printf '%s' "$e" | cut -d/ -f1)
+					proto=$(printf '%s' "$e" | cut -d/ -f3)
+					svc=$(printf '%s' "$e" | cut -d/ -f5)
+					ver=$(printf '%s' "$e" | cut -d/ -f7)
+					[ "$pfirst" = 1 ] || out="$out,"
+					pfirst=0
+					out="$out { \"port\": $port, \"proto\": \"$(esc "$proto")\", \"service\": \"$(esc "$svc")\", \"version\": \"$(esc "$ver")\" }"
+					;;
+				esac
+			done
+			IFS=$oifs
+			out="$out ] }"
+		done <<-EOF
+		$(printf '%s\n' "$grep_out" | grep '^Host:.*Ports:')
+		EOF
+	fi
+
+	out="$out ] }"
+	printf '%s\n' "$out"
+
+	d=$(store_dir) && printf '%s\n' "$out" >> "$d/scans.ndjson"
+}
+
 case "$1" in
 uplink)   cmd_uplink ;;
 discover) shift; cmd_discover "$@" ;;
 hosts)    cmd_hosts ;;
 ports)    shift; cmd_ports "$@" ;;
-*) echo "usage: slate-recon {uplink|discover|hosts|ports <target>}" >&2; exit 1 ;;
+scan)     shift; cmd_scan "$@" ;;
+*) echo "usage: slate-recon {uplink|discover|hosts|ports <target>|scan <profile> <target>}" >&2; exit 1 ;;
 esac

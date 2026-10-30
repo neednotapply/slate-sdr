@@ -217,9 +217,12 @@ Tested in this repository's tests and builds:
   (`mips_24kc`). The binaries run on OpenWrt 25.12.6's MIPS userland under
   QEMU, and SoapySDR loads its HackRF and RTL-SDR modules.
 - `tests/rootfs-test.sh` covers every job, the init script, the CLI, the
-  status page and the LuCI pages' rpcd calls (Slate SDR and Network Recon,
-  including the Wi-Fi survey database, GPS status, threat detection and the dashboard),
-  against mock radios on that same userland: 133 checks.
+  status page, the LuCI pages' rpcd calls (Slate SDR and Network Recon,
+  including the Wi-Fi survey database, GPS status, threat detection, the
+  dashboard and the nmap scan profiles) and the web UI's backends
+  (slate-router, slate-capture and slate-handshake: their rpcd plugins, input
+  validation and JSON shapes), against mock radios and tools on that same
+  userland: 163 checks.
 - Both images build on GitHub Actions, and the tests pass there.
 - The full build's configuration resolves: `./build-full.sh --config-only`
   keeps `CONFIG_KERNEL_RELAY`, the spectral options and upstream ath10k.
@@ -230,6 +233,11 @@ Not yet run:
   throughput over the router's USB, the card reader's write speed, and Wi-Fi
   spectral scan on this hardware. `ath10k` spectral on the QCA9887
   specifically has not been confirmed.
+- The web UI's live paths on real hardware: slate-capture's background tcpdump
+  and file rotation, slate-handshake's monitor-mode interface and EAPOL
+  capture, and slate-recon's scan profiles against a live nmap. The tests cover
+  their input validation and JSON; the capture and monitor-mode behaviour
+  itself needs the device.
 
 ## Layout
 

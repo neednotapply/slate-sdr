@@ -22,7 +22,7 @@ define Package/slate-ui
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=Slate web UI (cohesive dashboard over ubus)
-  DEPENDS:=+uhttpd +uhttpd-mod-ubus +rpcd
+  DEPENDS:=+uhttpd +uhttpd-mod-ubus +rpcd +tcpdump-mini +iw
   PKGARCH:=all
 endef
 
@@ -55,6 +55,12 @@ define Package/slate-ui/install
 	$(INSTALL_BIN) ./root/usr/sbin/slate-router $(1)/usr/sbin/slate-router
 	$(INSTALL_BIN) ./root/usr/libexec/rpcd/luci.slate-router $(1)/usr/libexec/rpcd/luci.slate-router
 	$(INSTALL_DATA) ./root/usr/share/rpcd/acl.d/luci-app-slate-router.json $(1)/usr/share/rpcd/acl.d/luci-app-slate-router.json
+	$(INSTALL_BIN) ./root/usr/sbin/slate-capture $(1)/usr/sbin/slate-capture
+	$(INSTALL_BIN) ./root/usr/libexec/rpcd/luci.slate-capture $(1)/usr/libexec/rpcd/luci.slate-capture
+	$(INSTALL_DATA) ./root/usr/share/rpcd/acl.d/luci-app-slate-capture.json $(1)/usr/share/rpcd/acl.d/luci-app-slate-capture.json
+	$(INSTALL_BIN) ./root/usr/sbin/slate-handshake $(1)/usr/sbin/slate-handshake
+	$(INSTALL_BIN) ./root/usr/libexec/rpcd/luci.slate-handshake $(1)/usr/libexec/rpcd/luci.slate-handshake
+	$(INSTALL_DATA) ./root/usr/share/rpcd/acl.d/luci-app-slate-handshake.json $(1)/usr/share/rpcd/acl.d/luci-app-slate-handshake.json
 endef
 
 # On a running router: make sure uhttpd exposes /ubus (what the UI calls), then

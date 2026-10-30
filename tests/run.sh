@@ -23,7 +23,7 @@ trap 'rm -rf "$ov"' EXIT
 docker run --rm --user 0 -e OWNER="$(id -u):$(id -g)" \
 	-v "$pkgs:/pkgs:ro" -v "$ov:/ov" "$SDK_IMAGE" sh -c '
 	for f in /pkgs/*.apk; do
-		case "${f##*/}" in slate-sdr-* | luci-app-slate-sdr-* | luci-app-slate-recon-*) continue ;; esac
+		case "${f##*/}" in slate-sdr-* | luci-app-slate-sdr-* | luci-app-slate-recon-* | slate-ui-*) continue ;; esac
 		/builder/staging_dir/host/bin/apk extract --allow-untrusted --destination /ov "$f" > /dev/null
 	done
 	rm -rf /ov/lib/apk
@@ -62,6 +62,17 @@ cp "$r/usr/share/luci/menu.d/luci-app-slate-recon.json" "$ov/usr/share/luci/menu
 cp "$r/usr/share/rpcd/acl.d/luci-app-slate-recon.json" "$ov/usr/share/rpcd/acl.d/"
 chmod 755 "$ov/usr/sbin/slate-recon" "$ov/usr/sbin/slate-survey" "$ov/usr/sbin/slate-threats" \
 	"$ov/usr/sbin/slate-dashboard" "$ov/usr/libexec/slate-survey-merge" "$ov/usr/libexec/rpcd/luci.slate-recon"
+
+# slate-ui's backend scripts (router, capture, handshake), from this tree too
+u="$here/feed/utils/slate-ui/root"
+cp "$u/usr/sbin/slate-router" "$u/usr/sbin/slate-capture" "$u/usr/sbin/slate-handshake" "$ov/usr/sbin/"
+cp "$u/usr/libexec/rpcd/luci.slate-router" "$u/usr/libexec/rpcd/luci.slate-capture" \
+	"$u/usr/libexec/rpcd/luci.slate-handshake" "$ov/usr/libexec/rpcd/"
+cp "$u/usr/share/rpcd/acl.d/luci-app-slate-router.json" "$u/usr/share/rpcd/acl.d/luci-app-slate-capture.json" \
+	"$u/usr/share/rpcd/acl.d/luci-app-slate-handshake.json" "$ov/usr/share/rpcd/acl.d/"
+chmod 755 "$ov/usr/sbin/slate-router" "$ov/usr/sbin/slate-capture" "$ov/usr/sbin/slate-handshake" \
+	"$ov/usr/libexec/rpcd/luci.slate-router" "$ov/usr/libexec/rpcd/luci.slate-capture" \
+	"$ov/usr/libexec/rpcd/luci.slate-handshake"
 
 # The decoders and libraries OpenWrt itself packages come from its
 # repository when online; offline, <directory> must hold them too.

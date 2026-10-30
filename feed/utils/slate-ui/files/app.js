@@ -81,6 +81,17 @@
 	}
 
 	var DEMO_ADB = { on: true };
+	var DEMO_CAP = {
+		running: false, iface: "", filter: "", file: "", start: 0,
+		files: [
+			{ name: "cap-20261029-1355.pcap", size: 5242880, mtime: "2026-10-29 13:55" },
+			{ name: "dns-cap-20261029-1402.pcap0", size: 3145728, mtime: "2026-10-29 14:02" }
+		]
+	};
+	var DEMO_HS = {
+		running: false, phy: "", channel: "", file: "", start: 0,
+		files: [ { name: "home-hs-ch6-20261029-1310.pcap", size: 28672, mtime: "2026-10-29 13:10" } ]
+	};
 
 	var MOCK = {
 		"luci.slate-recon:dashboard": {
@@ -146,6 +157,19 @@
 			return { alert: false, total: 4, window_s: secs, channel: 6, deauth: 3, disassoc: 1,
 				sources: [{ mac: "de:ad:be:ef:00:01", count: 3 }, { mac: "de:ad:be:ef:00:02", count: 1 }] };
 		},
+		"luci.slate-recon:scan": function (p) {
+			if (p.profile === "ping")
+				return { profile: "ping", target: p.target, saved: "scan-ping-20261029-1405.txt",
+					hosts: [{ ip: "192.168.1.1" }, { ip: "192.168.1.10" }, { ip: "192.168.1.23" }, { ip: "192.168.1.42" }] };
+			var svc = p.profile === "service";
+			return { profile: p.profile, target: p.target, saved: "scan-" + p.profile + "-20261029-1405.txt",
+				hosts: [{ ip: (/^[0-9.]+$/.test(p.target || "") ? p.target : "192.168.1.10"), ports: [
+					{ port: 22, proto: "tcp", service: "ssh", version: svc ? "OpenSSH 9.6" : "" },
+					{ port: 80, proto: "tcp", service: "http", version: svc ? "nginx 1.26" : "" },
+					{ port: 443, proto: "tcp", service: "https", version: svc ? "nginx 1.26" : "" },
+					{ port: 8080, proto: "tcp", service: "http-proxy", version: "" }
+				] }] };
+		},
 		"luci.slate-sdr:use": function (p) {
 			var job = DEMO_JOBS.filter(function (j) { return j.name === p.job; })[0];
 			var stopped = [];
@@ -185,6 +209,56 @@
 			if (p && (p.enabled === true || p.enabled === 1 || p.enabled === "1" || p.enabled === "true")) DEMO_ADB.on = true;
 			else if (p && (p.enabled === false || p.enabled === 0 || p.enabled === "0" || p.enabled === "false")) DEMO_ADB.on = false;
 			return { installed: true, enabled: DEMO_ADB.on, running: DEMO_ADB.on, domains: 58781 };
+		},
+		"luci.slate-capture:interfaces": {
+			interfaces: [
+				{ name: "br-lan", state: "up" },
+				{ name: "phy1-sta0", state: "up" },
+				{ name: "phy0-ap0", state: "up" },
+				{ name: "eth0", state: "down" }
+			]
+		},
+		"luci.slate-capture:status": function () {
+			if (!DEMO_CAP.running) return { running: false, iface: "", filter: "", file: "", size: 0, elapsed: 0 };
+			var e = Math.floor(Date.now() / 1000) - DEMO_CAP.start;
+			return { running: true, iface: DEMO_CAP.iface, filter: DEMO_CAP.filter,
+				file: DEMO_CAP.file, size: 12000 + e * 2500, elapsed: e };
+		},
+		"luci.slate-capture:list": function () { return { files: DEMO_CAP.files.slice() }; },
+		"luci.slate-capture:start": function (p) {
+			DEMO_CAP.running = true; DEMO_CAP.iface = p.iface || "br-lan"; DEMO_CAP.filter = p.filter || "";
+			DEMO_CAP.start = Math.floor(Date.now() / 1000);
+			var ts = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 13);
+			DEMO_CAP.file = (p.name ? p.name + "-" : "") + "cap-" + ts + ".pcap";
+			return MOCK["luci.slate-capture:status"]();
+		},
+		"luci.slate-capture:stop": function () {
+			if (DEMO_CAP.running)
+				DEMO_CAP.files.unshift({ name: DEMO_CAP.file, size: 12000 + (Math.floor(Date.now() / 1000) - DEMO_CAP.start) * 2500, mtime: "just now" });
+			DEMO_CAP.running = false;
+			return { stopped: true };
+		},
+		"luci.slate-handshake:radios": {
+			radios: [ { phy: "phy0", monitor: true }, { phy: "phy1", monitor: true } ]
+		},
+		"luci.slate-handshake:status": function () {
+			if (!DEMO_HS.running) return { running: false, phy: "", channel: "", file: "", size: 0, elapsed: 0, eapol: 0 };
+			var e = Math.floor(Date.now() / 1000) - DEMO_HS.start;
+			return { running: true, phy: DEMO_HS.phy, channel: DEMO_HS.channel, file: DEMO_HS.file,
+				size: 4096 + e * 300, elapsed: e, eapol: e > 8 ? 4 : 0 };
+		},
+		"luci.slate-handshake:list": function () { return { files: DEMO_HS.files.slice() }; },
+		"luci.slate-handshake:start": function (p) {
+			DEMO_HS.running = true; DEMO_HS.phy = p.phy || "phy1"; DEMO_HS.channel = p.channel || "6";
+			DEMO_HS.start = Math.floor(Date.now() / 1000);
+			var ts = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 13);
+			DEMO_HS.file = (p.name ? p.name + "-" : "") + "hs-ch" + DEMO_HS.channel + "-" + ts + ".pcap";
+			return MOCK["luci.slate-handshake:status"]();
+		},
+		"luci.slate-handshake:stop": function () {
+			if (DEMO_HS.running) DEMO_HS.files.unshift({ name: DEMO_HS.file, size: 28000, mtime: "just now" });
+			DEMO_HS.running = false;
+			return { stopped: true };
 		}
 	};
 
@@ -259,6 +333,12 @@
 		return m + "m";
 	}
 	function mb(kb) { return Math.round((+kb || 0) / 1024); }
+	function size(b) {
+		b = +b || 0;
+		if (b >= 1048576) return (b / 1048576).toFixed(1) + " MB";
+		if (b >= 1024) return Math.round(b / 1024) + " KB";
+		return b + " B";
+	}
 	function secClass(sec) {
 		if (sec === "Open") return "sec-open";
 		if (sec === "WEP" || sec === "WPA") return "sec-warn";
@@ -422,6 +502,7 @@
 				"  ·  " + (u.iface || "") + "  ·  " + (u.subnet || "") +
 				"  ·  gw " + (u.gateway || "-") + (u.gateway_mac ? " (" + u.gateway_mac + ")" : "")));
 			setNetPill(true, u.ssid);
+			if (u.subnet && profTarget && !profTarget.value) profTarget.value = u.subnet;
 		}
 		function fillTable(data) {
 			var list = (data && data.hosts) || [];
@@ -464,6 +545,54 @@
 					return [el("strong", { text: String(p.port) }), p.proto || "-", p.service || "-"];
 				})));
 			}).catch(function (e) { clear(body).appendChild(alertEl("warn", String(e.message || e))); });
+		}
+
+		// Port & service scan profiles (nmap).
+		var secProf = panel("Port & service scan");
+		secProf.style.marginTop = "14px";
+		var profTarget = el("input", { class: "inp", type: "text", placeholder: "host IP, name, or subnet (CIDR)" });
+		var profSel = el("select", { class: "sel" },
+			el("option", { value: "quick", text: "Quick — top 100 ports" }),
+			el("option", { value: "top1000", text: "Top 1000 ports" }),
+			el("option", { value: "service", text: "Service / version (top 100)" }),
+			el("option", { value: "ping", text: "Ping sweep (hosts up)" }));
+		var profStatus = el("span", { class: "status" });
+		var profWrap = el("div");
+		secProf.appendChild(el("div", { class: "form" },
+			el("label", {}, el("span", { class: "lbl", text: "Target" }), profTarget),
+			el("label", {}, el("span", { class: "lbl", text: "Profile" }), profSel)));
+		secProf.appendChild(el("div", { class: "toolbar" }, btn("Run scan", { primary: true, onclick: runProfile }), profStatus));
+		secProf.appendChild(profWrap);
+		secProf.appendChild(el("p", { class: "descr", text:
+			"nmap against a host you name or the joined subnet, logged to the card under recon/. Longer profiles take a while on this hardware." }));
+		VIEW.appendChild(secProf);
+
+		function runProfile() {
+			if (!profTarget.value) { profStatus.textContent = "enter a target"; return; }
+			profStatus.textContent = "scanning… (this can take a while)";
+			clear(profWrap);
+			call("luci.slate-recon", "scan", { profile: profSel.value, target: profTarget.value }).then(function (r) {
+				profStatus.textContent = r.saved ? "saved " + r.saved : "";
+				if (r.error) { profWrap.appendChild(alertEl("warn", r.error)); return; }
+				var hosts = r.hosts || [];
+				if (!hosts.length) { profWrap.appendChild(el("div", { class: "placeholder", text: "No results." })); return; }
+				if (profSel.value === "ping") {
+					profWrap.appendChild(tableEl(["Hosts up"], hosts.map(function (h) { return [el("code", { text: h.ip })]; })));
+					return;
+				}
+				hosts.forEach(function (h) {
+					profWrap.appendChild(el("h4", { class: "sub-h2", text: h.ip }));
+					var ports = h.ports || [];
+					if (!ports.length) { profWrap.appendChild(el("div", { class: "muted", text: "no open ports" })); return; }
+					profWrap.appendChild(tableEl(["Port", "Proto", "Service", "Version"], ports.map(function (p) {
+						return [el("strong", { text: String(p.port) }), p.proto || "-", p.service || "-", p.version || ""];
+					})));
+				});
+			}).catch(function (e) {
+				profStatus.textContent = "";
+				if (String(e.message || e) === "unauthorized") return onError(e);
+				profWrap.appendChild(alertEl("warn", String(e.message || e)));
+			});
 		}
 
 		call("luci.slate-recon", "uplink").then(showUplink).catch(function () { showUplink(null); });
@@ -867,6 +996,183 @@
 		});
 	}
 
+	/* ---------- Capture ---------- */
+
+	function renderCapture() {
+		clear(VIEW);
+		VIEW.appendChild(viewHead("Capture", "passive packet capture to the microSD card"));
+
+		var ctl = panel("New capture");
+		var ifaceSel = el("select", { class: "sel" });
+		var filterIn = el("input", { class: "inp", type: "text", placeholder: "optional BPF filter, e.g. port 53" });
+		var nameIn = el("input", { class: "inp", type: "text", placeholder: "optional name" });
+		var startBtn = btn("Start capture", { primary: true, onclick: doStart });
+		var stopBtn = btn("Stop", { cls: "reset", onclick: doStop });
+		var statusLine = el("div", { class: "status" });
+		ctl.appendChild(el("div", { class: "form" },
+			el("label", {}, el("span", { class: "lbl", text: "Interface" }), ifaceSel),
+			el("label", {}, el("span", { class: "lbl", text: "Filter" }), filterIn),
+			el("label", {}, el("span", { class: "lbl", text: "Name" }), nameIn)));
+		ctl.appendChild(el("div", { class: "toolbar" }, startBtn, stopBtn, statusLine));
+		ctl.appendChild(el("p", { class: "descr", text:
+			"Captures on an ordinary interface (no monitor mode, no transmit), size-rotated so it cannot fill the card." }));
+
+		var filesPanel = panel("Saved captures");
+		filesPanel.style.marginTop = "14px";
+		var filesWrap = el("div", {}, el("div", { class: "muted", text: "Loading…" }));
+		filesPanel.appendChild(el("div", { class: "toolbar" }, btn("Refresh", { onclick: refresh })));
+		filesPanel.appendChild(filesWrap);
+
+		VIEW.appendChild(ctl); VIEW.appendChild(filesPanel);
+
+		function fillIfaces(d) {
+			clear(ifaceSel);
+			((d && d.interfaces) || []).forEach(function (i) {
+				ifaceSel.appendChild(el("option", { value: i.name,
+					text: i.name + (i.state && i.state !== "up" ? " (" + i.state + ")" : "") }));
+			});
+		}
+		function showStatus(s) {
+			var running = s && s.running;
+			startBtn.disabled = !!running;
+			stopBtn.disabled = !running;
+			if (running) {
+				statusLine.textContent = "capturing on " + s.iface + (s.filter ? " [" + s.filter + "]" : "") +
+					" — " + size(s.size) + ", " + dur(s.elapsed) + (s.file ? " — " + s.file : "");
+				statusLine.className = "status ok-text";
+			} else {
+				statusLine.textContent = "idle";
+				statusLine.className = "status";
+			}
+		}
+		function fillFiles(d) {
+			var list = (d && d.files) || [];
+			if (!list.length) { clear(filesWrap).appendChild(el("div", { class: "placeholder", text: "No captures on the card yet." })); return; }
+			clear(filesWrap).appendChild(tableEl(["File", "Size", "When"], list.map(function (f) {
+				var url = "http://" + (location.hostname || "192.168.1.1") + ":8081/slate-sdr/capture/" + f.name;
+				return [el("a", { href: url, target: "_blank", rel: "noopener", text: f.name }), size(f.size), f.mtime || ""];
+			})));
+		}
+		function refresh() {
+			call("luci.slate-capture", "status").then(showStatus).catch(function () {});
+			call("luci.slate-capture", "list").then(fillFiles).catch(function (e) {
+				clear(filesWrap).appendChild(alertEl("warn", String(e.message || e)));
+			});
+		}
+		function doStart() {
+			startBtn.disabled = true;
+			call("luci.slate-capture", "start", { iface: ifaceSel.value, filter: filterIn.value, name: nameIn.value }).then(function (s) {
+				if (s.error) { statusLine.textContent = s.error; statusLine.className = "status err"; startBtn.disabled = false; return; }
+				showStatus(s); refresh();
+			}).catch(function (e) {
+				if (String(e.message || e) === "unauthorized") return onError(e);
+				statusLine.textContent = String(e.message || e); statusLine.className = "status err"; startBtn.disabled = false;
+			});
+		}
+		function doStop() {
+			stopBtn.disabled = true;
+			call("luci.slate-capture", "stop").then(function () { refresh(); }).catch(function (e) {
+				statusLine.textContent = String(e.message || e); statusLine.className = "status err";
+			});
+		}
+
+		call("luci.slate-capture", "interfaces").then(fillIfaces).catch(function (e) {
+			if (String(e.message || e) === "unauthorized") return onError(e);
+		});
+		refresh();
+	}
+
+	/* ---------- Handshake (passive) ---------- */
+
+	function renderHandshake() {
+		clear(VIEW);
+		VIEW.appendChild(viewHead("Handshake", "passive WPA handshake capture (monitor mode)"));
+		VIEW.appendChild(alertEl("info",
+			"Listen-only: a radio in monitor mode records the WPA 4-way handshake when a device reconnects on its own. It never transmits, deauthenticates, or forces a reconnection. For networks you own or are authorized to test — cracking happens offline on your computer."));
+
+		var ctl = panel("New capture");
+		ctl.style.marginTop = "14px";
+		var radioSel = el("select", { class: "sel" });
+		var chIn = el("input", { class: "inp", type: "number", min: "1", max: "196", placeholder: "channel, e.g. 6" });
+		var nameIn = el("input", { class: "inp", type: "text", placeholder: "optional name" });
+		var startBtn = btn("Start capture", { primary: true, onclick: doStart });
+		var stopBtn = btn("Stop", { cls: "reset", onclick: doStop });
+		var statusLine = el("div", { class: "status" });
+		ctl.appendChild(el("div", { class: "form" },
+			el("label", {}, el("span", { class: "lbl", text: "Radio" }), radioSel),
+			el("label", {}, el("span", { class: "lbl", text: "Channel" }), chIn),
+			el("label", {}, el("span", { class: "lbl", text: "Name" }), nameIn)));
+		ctl.appendChild(el("div", { class: "toolbar" }, startBtn, stopBtn, statusLine));
+
+		var filesPanel = panel("Saved handshakes");
+		filesPanel.style.marginTop = "14px";
+		var filesWrap = el("div", {}, el("div", { class: "muted", text: "Loading…" }));
+		filesPanel.appendChild(el("div", { class: "toolbar" }, btn("Refresh", { onclick: refresh })));
+		filesPanel.appendChild(filesWrap);
+
+		VIEW.appendChild(ctl); VIEW.appendChild(filesPanel);
+
+		function fillRadios(d) {
+			clear(radioSel);
+			var any = false;
+			((d && d.radios) || []).forEach(function (r) {
+				var o = el("option", { value: r.phy, text: r.phy + (r.monitor ? "" : " (no monitor)") });
+				if (!r.monitor) o.disabled = true; else any = true;
+				radioSel.appendChild(o);
+			});
+			if (!any) radioSel.appendChild(el("option", { value: "", text: "no monitor-capable radio" }));
+		}
+		function showStatus(s) {
+			var running = s && s.running;
+			startBtn.disabled = !!running;
+			stopBtn.disabled = !running;
+			if (running) {
+				var hs = s.eapol >= 4 ? " — handshake likely (" + s.eapol + " EAPOL)"
+					: (s.eapol ? " — " + s.eapol + " EAPOL frames" : " — waiting for a handshake…");
+				statusLine.textContent = "listening on " + s.phy + " ch " + s.channel + " — " + size(s.size) + ", " + dur(s.elapsed) + hs;
+				statusLine.className = "status " + (s.eapol >= 4 ? "ok-text" : "");
+			} else {
+				statusLine.textContent = "idle";
+				statusLine.className = "status";
+			}
+		}
+		function fillFiles(d) {
+			var list = (d && d.files) || [];
+			if (!list.length) { clear(filesWrap).appendChild(el("div", { class: "placeholder", text: "No handshakes captured yet." })); return; }
+			clear(filesWrap).appendChild(tableEl(["File", "Size", "When"], list.map(function (f) {
+				var url = "http://" + (location.hostname || "192.168.1.1") + ":8081/slate-sdr/handshake/" + f.name;
+				return [el("a", { href: url, target: "_blank", rel: "noopener", text: f.name }), size(f.size), f.mtime || ""];
+			})));
+		}
+		function refresh() {
+			call("luci.slate-handshake", "status").then(showStatus).catch(function () {});
+			call("luci.slate-handshake", "list").then(fillFiles).catch(function (e) {
+				clear(filesWrap).appendChild(alertEl("warn", String(e.message || e)));
+			});
+		}
+		function doStart() {
+			startBtn.disabled = true;
+			call("luci.slate-handshake", "start", { phy: radioSel.value, channel: chIn.value, name: nameIn.value }).then(function (s) {
+				if (s.error) { statusLine.textContent = s.error; statusLine.className = "status err"; startBtn.disabled = false; return; }
+				showStatus(s); refresh();
+			}).catch(function (e) {
+				if (String(e.message || e) === "unauthorized") return onError(e);
+				statusLine.textContent = String(e.message || e); statusLine.className = "status err"; startBtn.disabled = false;
+			});
+		}
+		function doStop() {
+			stopBtn.disabled = true;
+			call("luci.slate-handshake", "stop").then(function () { refresh(); }).catch(function (e) {
+				statusLine.textContent = String(e.message || e); statusLine.className = "status err";
+			});
+		}
+
+		call("luci.slate-handshake", "radios").then(fillRadios).catch(function (e) {
+			if (String(e.message || e) === "unauthorized") return onError(e);
+		});
+		refresh();
+	}
+
 	/* ---------- fallback for an unknown route ---------- */
 
 	function renderPlaceholder(name) {
@@ -883,7 +1189,9 @@
 		["hosts", "Hosts"],
 		["survey", "Wi-Fi Survey"],
 		["threats", "Threats"],
-		["router", "Router"]
+		["router", "Router"],
+		["capture", "Capture"],
+		["handshake", "Handshake"]
 	];
 	var current = "dashboard";
 
@@ -908,6 +1216,8 @@
 		if (id === "survey") return renderSurvey();
 		if (id === "threats") return renderThreats();
 		if (id === "router") return renderRouter();
+		if (id === "capture") return renderCapture();
+		if (id === "handshake") return renderHandshake();
 		renderPlaceholder(id);
 	}
 
