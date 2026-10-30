@@ -29,6 +29,11 @@ horst
 # Network Recon). Pulls arp-scan, its OUI database, nmap, ip-full and iw.
 luci-app-slate-recon
 
+# The cohesive Slate web UI, served by uhttpd at /slate-ui/ and driven by the
+# rpcd/ubus backend above. Work in progress; intended to replace LuCI. Pulls
+# uhttpd-mod-ubus.
+slate-ui
+
 # GPS for the Wi-Fi survey's wardriving positions: gpsd and gpspipe, plus the
 # kernel drivers a USB GPS enumerates with (CDC-ACM for u-blox; the common
 # USB-serial chips). The full image's kernel is its own, so these kmods must

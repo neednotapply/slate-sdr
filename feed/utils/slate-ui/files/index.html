@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Pirate Radio</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+	<div class="brand">
+		<span class="brand-mark" aria-hidden="true">&#x259E;&#x259A;</span>
+		<div class="brand-text">
+			<strong id="devname">Pirate Radio</strong>
+			<small>Slate &middot; field station</small>
+		</div>
+	</div>
+	<div class="top-right">
+		<span id="demo-badge" class="badge badge-demo" hidden>demo data</span>
+		<span id="net-pill" class="pill">&mdash;</span>
+	</div>
+</header>
+
+<nav id="tabs" class="tabs" aria-label="Sections"></nav>
+<main id="view" class="view" aria-live="polite"></main>
+
+<div id="login" class="overlay" hidden>
+	<form id="login-form" class="login-card">
+		<h1>Pirate Radio</h1>
+		<p class="muted">Sign in to the Slate</p>
+		<label>User
+			<input id="u" value="root" autocomplete="username" autocapitalize="off" spellcheck="false">
+		</label>
+		<label>Password
+			<input id="p" type="password" autocomplete="current-password">
+		</label>
+		<button type="submit">Sign in</button>
+		<p id="login-err" class="err" hidden></p>
+	</form>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

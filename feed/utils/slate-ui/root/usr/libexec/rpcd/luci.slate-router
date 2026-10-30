@@ -1,0 +1,36 @@
+#!/bin/sh
+# rpcd plugin for the Slate web UI's router-basics methods. A thin wrapper over
+# the slate-router tool.
+#
+#   ubus call luci.slate-router status
+#   ubus call luci.slate-router clients
+#   ubus call luci.slate-router adblock '{"enabled":true}'   (omit to just read)
+
+. /usr/share/libubox/jshn.sh
+
+ROUTER=${SLATE_ROUTER:-/usr/sbin/slate-router}
+
+run_adblock() {
+	local input enabled
+	read -r input
+	json_load "$input"
+	json_get_var enabled enabled
+	case "$enabled" in
+	1|true)  "$ROUTER" adblock on ;;
+	0|false) "$ROUTER" adblock off ;;
+	*)       "$ROUTER" adblock ;;
+	esac
+}
+
+case "$1" in
+list)
+	echo '{ "status": {}, "clients": {}, "adblock": { "enabled": false } }'
+	;;
+call)
+	case "$2" in
+	status)  "$ROUTER" status ;;
+	clients) "$ROUTER" clients ;;
+	adblock) run_adblock ;;
+	esac
+	;;
+esac

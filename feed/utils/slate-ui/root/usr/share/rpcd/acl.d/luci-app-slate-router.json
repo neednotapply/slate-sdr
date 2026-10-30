@@ -1,0 +1,15 @@
+{
+	"luci-app-slate-router": {
+		"description": "Grant access to router basics: system status, clients, adblock toggle",
+		"read": {
+			"ubus": {
+				"luci.slate-router": [ "status", "clients" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"luci.slate-router": [ "adblock" ]
+			}
+		}
+	}
+}

@@ -1,0 +1,103 @@
+#!/bin/sh
+# slate-router: router basics for the Slate web UI — system + uplink status,
+# connected clients (from the DHCP leases), and the adblock toggle. Read-only
+# except `adblock on|off`. Prints one JSON object per subcommand, the reply the
+# luci.slate-router rpcd plugin returns.
+#
+#   slate-router status
+#   slate-router clients
+#   slate-router adblock [on|off]
+
+. /usr/share/libubox/jshn.sh
+
+# SLATE_LEASES points it at another leases file (tests).
+LEASES=${SLATE_LEASES:-/tmp/dhcp.leases}
+
+cmd_status() {
+	local host model fw up load mt mf ma fst fsf online
+
+	host=$(cat /proc/sys/kernel/hostname 2>/dev/null)
+	model=$(cat /tmp/sysinfo/model 2>/dev/null)
+	fw=$(. /etc/openwrt_release 2>/dev/null; printf '%s' "$DISTRIB_DESCRIPTION")
+	up=$(cut -d. -f1 /proc/uptime 2>/dev/null)
+	load=$(cut -d' ' -f1 /proc/loadavg 2>/dev/null)
+	mt=$(awk '/^MemTotal:/{print $2}' /proc/meminfo 2>/dev/null)
+	mf=$(awk '/^MemFree:/{print $2}' /proc/meminfo 2>/dev/null)
+	ma=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo 2>/dev/null)
+	fst=$(df -k /overlay 2>/dev/null | awk 'NR==2{print $2}')
+	fsf=$(df -k /overlay 2>/dev/null | awk 'NR==2{print $4}')
+	online=0
+	[ -n "$(ip route show default 2>/dev/null)" ] && online=1
+
+	json_init
+	json_add_string hostname "${host:-}"
+	json_add_string model "${model:-}"
+	json_add_string firmware "${fw:-}"
+	json_add_int uptime "${up:-0}"
+	json_add_string load "${load:-}"
+	json_add_object memory
+	json_add_int total "${mt:-0}"
+	json_add_int free "${mf:-0}"
+	json_add_int available "${ma:-0}"
+	json_close_object
+	json_add_object flash
+	json_add_int total "${fst:-0}"
+	json_add_int free "${fsf:-0}"
+	json_close_object
+	json_add_boolean online "$online"
+	json_dump
+}
+
+cmd_clients() {
+	local exp mac ip host cid name
+
+	json_init
+	json_add_array clients
+	if [ -f "$LEASES" ]; then
+		while read -r exp mac ip host cid; do
+			[ -n "$mac" ] || continue
+			name=$host
+			[ "$name" = "*" ] && name="-"
+			json_add_object ""
+			json_add_string mac "$mac"
+			json_add_string ip "$ip"
+			json_add_string host "$name"
+			json_close_object
+		done < "$LEASES"
+	fi
+	json_close_array
+	json_dump
+}
+
+cmd_adblock() {
+	local arg="$1" enabled running installed domains f
+
+	case "$arg" in
+	on)  uci -q set adblock.global.adb_enabled='1'; uci -q commit adblock; /etc/init.d/adblock start >/dev/null 2>&1 ;;
+	off) uci -q set adblock.global.adb_enabled='0'; uci -q commit adblock; /etc/init.d/adblock stop >/dev/null 2>&1 ;;
+	esac
+
+	installed=0
+	[ -x /etc/init.d/adblock ] && installed=1
+	enabled=$(uci -q get adblock.global.adb_enabled)
+	running=0
+	pgrep -f '[a]dblock' >/dev/null 2>&1 && running=1
+	domains=0
+	for f in /tmp/adb_list.overall /tmp/dnsmasq.d/adb_list.overall /var/run/adb_list.overall; do
+		[ -f "$f" ] && { domains=$(grep -c . "$f" 2>/dev/null); break; }
+	done
+
+	json_init
+	json_add_boolean installed "$installed"
+	json_add_boolean enabled "${enabled:-0}"
+	json_add_boolean running "$running"
+	json_add_int domains "${domains:-0}"
+	json_dump
+}
+
+case "$1" in
+status)  cmd_status ;;
+clients) cmd_clients ;;
+adblock) cmd_adblock "$2" ;;
+*) echo '{ "error": "usage: slate-router status|clients|adblock [on|off]" }' ;;
+esac
