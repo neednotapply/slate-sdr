@@ -221,8 +221,9 @@ Tested in this repository's tests and builds:
   including the Wi-Fi survey database, GPS status, threat detection, the
   dashboard and the nmap scan profiles) and the web UI's backends
   (slate-router, slate-capture and slate-handshake: their rpcd plugins, input
-  validation and JSON shapes), against mock radios and tools on that same
-  userland: 162 checks.
+  validation and JSON shapes, including the set-password and Wi-Fi
+  join/scan/status methods), against mock radios and tools on that same
+  userland: 169 checks.
 - Both images build on GitHub Actions, and the tests pass there.
 - The full build's configuration resolves: `./build-full.sh --config-only`
   keeps `CONFIG_KERNEL_RELAY`, the spectral options and upstream ath10k.

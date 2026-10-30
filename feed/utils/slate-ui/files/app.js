@@ -210,6 +210,26 @@
 			else if (p && (p.enabled === false || p.enabled === 0 || p.enabled === "0" || p.enabled === "false")) DEMO_ADB.on = false;
 			return { installed: true, enabled: DEMO_ADB.on, running: DEMO_ADB.on, domains: 58781 };
 		},
+		"luci.slate-router:wifi_status": { configured: true, ssid: "NoInternetHere-5", encryption: "psk2", connected: true, live_ssid: "NoInternetHere-5", signal: -58 },
+		"luci.slate-router:wifi_scan": {
+			networks: [
+				{ ssid: "NoInternetHere-5", bssid: "78:d2:94:75:db:ca", channel: 36, signal: -58, enc: "wpa2" },
+				{ ssid: "CoffeeShop", bssid: "aa:bb:cc:00:11:22", channel: 1, signal: -67, enc: "open" },
+				{ ssid: "Neighbor-5G", bssid: "e8:de:27:44:55:66", channel: 149, signal: -74, enc: "wpa3" },
+				{ ssid: "", bssid: "12:34:56:78:9a:bc", channel: 6, signal: -81, enc: "wpa2" }
+			]
+		},
+		"luci.slate-router:wifi_join": function (p) {
+			if (!p.ssid) return { error: "no SSID" };
+			var e = p.enc === "open" ? "none" : (p.enc === "wpa3" ? "sae" : "psk2");
+			if (e !== "none" && !p.key) return { error: "this network needs a password" };
+			return { ok: true, ssid: p.ssid, encryption: e };
+		},
+		"luci.slate-router:set_password": function (p) {
+			if (!p.password) return { error: "empty password" };
+			if (p.password.length < 5) return { error: "use at least 5 characters" };
+			return { ok: true };
+		},
 		"luci.slate-capture:interfaces": {
 			interfaces: [
 				{ name: "br-lan", state: "up" },
@@ -977,6 +997,101 @@
 				clear(adbWrap).appendChild(alertEl("warn", String(e.message || e)));
 			});
 		}
+
+		// Wi-Fi uplink
+		var wifiPanel = panel("Wi-Fi uplink");
+		wifiPanel.style.marginTop = "14px";
+		var wifiStatus = el("div", { class: "muted", text: "Loading…" });
+		var wifiScanWrap = el("div");
+		var joinSsid = el("input", { class: "inp", type: "text", placeholder: "SSID" });
+		var joinKey = el("input", { class: "inp", type: "password", placeholder: "password (blank if open)" });
+		var joinStatus = el("span", { class: "status" });
+		wifiPanel.appendChild(wifiStatus);
+		wifiPanel.appendChild(el("div", { class: "toolbar" }, btn("Scan for networks", { onclick: wifiScan })));
+		wifiPanel.appendChild(wifiScanWrap);
+		wifiPanel.appendChild(el("h4", { class: "sub-h2", text: "Join a network" }));
+		wifiPanel.appendChild(el("div", { class: "form" },
+			el("label", {}, el("span", { class: "lbl", text: "SSID" }), joinSsid),
+			el("label", {}, el("span", { class: "lbl", text: "Password" }), joinKey)));
+		wifiPanel.appendChild(el("div", { class: "toolbar" },
+			btn("Join", { primary: true, onclick: function () { doJoin(joinSsid.value, "", joinKey.value); } }), joinStatus));
+		wifiPanel.appendChild(el("p", { class: "descr", text:
+			"Changing the uplink reloads Wi-Fi — the Pirate Radio AP drops briefly and comes back, so you stay reachable on it even if the new network is wrong." }));
+
+		// Set root password
+		var pwPanel = panel("Set root password");
+		pwPanel.style.marginTop = "14px";
+		var pw1 = el("input", { class: "inp", type: "password", placeholder: "new password" });
+		var pw2 = el("input", { class: "inp", type: "password", placeholder: "confirm" });
+		var pwStatus = el("span", { class: "status" });
+		pwPanel.appendChild(el("div", { class: "form" },
+			el("label", {}, el("span", { class: "lbl", text: "New password" }), pw1),
+			el("label", {}, el("span", { class: "lbl", text: "Confirm" }), pw2)));
+		pwPanel.appendChild(el("div", { class: "toolbar" }, btn("Set password", { primary: true, onclick: setPassword }), pwStatus));
+		pwPanel.appendChild(el("p", { class: "descr", text: "Sets the root password used for SSH and this UI's sign-in." }));
+
+		VIEW.appendChild(wifiPanel); VIEW.appendChild(pwPanel);
+
+		function showWifi(s) {
+			clear(wifiStatus);
+			if (!s || s.configured === false) { wifiStatus.appendChild(el("span", { class: "muted", text: "No uplink configured." })); return; }
+			var ok = !!s.connected;
+			wifiStatus.appendChild(badge(ok ? "connected" : "down", ok ? "sec-ok" : "sec-neutral"));
+			wifiStatus.appendChild(document.createTextNode(" " + (s.ssid || s.live_ssid || "—") +
+				(ok && s.signal ? "  ·  " + s.signal + " dBm" : "") + (s.encryption ? "  ·  " + s.encryption : "")));
+		}
+		function encLabel(e) { return e === "open" ? "open" : (e === "wpa3" ? "WPA3" : (e === "wep" ? "WEP" : "WPA2")); }
+		function wifiScan() {
+			clear(wifiScanWrap).appendChild(el("div", { class: "muted", text: "scanning…" }));
+			call("luci.slate-router", "wifi_scan").then(function (r) {
+				var nets = (r && r.networks) || [];
+				nets.sort(function (a, b) { return (b.signal || -999) - (a.signal || -999); });
+				if (!nets.length) { clear(wifiScanWrap).appendChild(el("div", { class: "placeholder", text: "No networks found." })); return; }
+				clear(wifiScanWrap).appendChild(tableEl(["Network", "Ch", "Signal", "Security", ""], nets.map(function (n) {
+					return [
+						n.ssid ? el("strong", { text: n.ssid }) : el("em", { class: "muted", text: "(hidden)" }),
+						String(n.channel || "-"),
+						(n.signal ? n.signal + " dBm" : "-"),
+						badge(encLabel(n.enc), n.enc === "open" ? "sec-open" : (n.enc === "wpa3" ? "sec-ok" : "sec-warn")),
+						n.ssid ? btn("Use", { cls: "small", onclick: function () {
+							joinSsid.value = n.ssid; joinKey.value = "";
+							if (n.enc === "open") doJoin(n.ssid, "open", "");
+							else { joinKey.focus(); joinStatus.className = "status"; joinStatus.textContent = "enter the password, then Join"; }
+						} }) : ""
+					];
+				})));
+			}).catch(function (e) { clear(wifiScanWrap).appendChild(alertEl("warn", String(e.message || e))); });
+		}
+		function doJoin(ssid, enc, key) {
+			if (!ssid) { joinStatus.className = "status"; joinStatus.textContent = "enter an SSID"; return; }
+			joinStatus.className = "status";
+			joinStatus.textContent = "joining " + ssid + "… (Wi-Fi reloads)";
+			call("luci.slate-router", "wifi_join", { ssid: ssid, enc: enc || "", key: key }).then(function (r) {
+				if (r.error) { joinStatus.textContent = r.error; joinStatus.className = "status err"; return; }
+				joinStatus.className = "status ok-text";
+				joinStatus.textContent = "applied — joining " + r.ssid + " (" + r.encryption + "); give it a moment";
+				setTimeout(function () { call("luci.slate-router", "wifi_status").then(showWifi).catch(function () {}); }, 6000);
+			}).catch(function (e) {
+				if (String(e.message || e) === "unauthorized") return onError(e);
+				joinStatus.textContent = String(e.message || e); joinStatus.className = "status err";
+			});
+		}
+		function setPassword() {
+			pwStatus.className = "status";
+			if (pw1.value.length < 5) { pwStatus.textContent = "use at least 5 characters"; return; }
+			if (pw1.value !== pw2.value) { pwStatus.textContent = "the two entries differ"; return; }
+			pwStatus.textContent = "setting…";
+			call("luci.slate-router", "set_password", { password: pw1.value }).then(function (r) {
+				if (r.error) { pwStatus.textContent = r.error; pwStatus.className = "status err"; return; }
+				pwStatus.className = "status ok-text"; pwStatus.textContent = "password set";
+				pw1.value = ""; pw2.value = "";
+			}).catch(function (e) {
+				if (String(e.message || e) === "unauthorized") return onError(e);
+				pwStatus.textContent = String(e.message || e); pwStatus.className = "status err";
+			});
+		}
+
+		call("luci.slate-router", "wifi_status").then(showWifi).catch(function () { clear(wifiStatus); });
 
 		call("luci.slate-router", "status").then(function (s) {
 			fillSys(s);

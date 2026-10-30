@@ -521,6 +521,13 @@ check "router: clients parsed from the leases (unknown host -> -)" sh -c "[ \"\$
 check "router: no leases file -> empty list" sh -c "[ \"\$(SLATE_LEASES=/nonexistent slate-router clients | jsonfilter -e '@.clients[*].ip' | wc -l)\" = 0 ]"
 check "router: adblock reports installed false when absent" sh -c 'slate-router adblock | jsonfilter -e "@.installed" | grep -qx false'
 check "router: unknown command yields an error" sh -c 'slate-router wat | jsonfilter -e "@.error" >/dev/null'
+check "router: rpcd offers set_password, wifi_status/scan/join" sh -c '"'"$RR"'" list | jsonfilter -e "@.set_password.password" | grep -qx str && "'"$RR"'" list | jsonfilter -e "@.wifi_join.ssid" | grep -qx str'
+check "router: wifi_status is valid JSON" sh -c 'slate-router wifi_status | jsonfilter -e "@" >/dev/null'
+check "router: wifi_scan is valid JSON" sh -c 'slate-router wifi_scan | jsonfilter -e "@" >/dev/null'
+check "router: wifi_join rejects a missing SSID" sh -c 'slate-router wifi_join "" psk2 </dev/null | jsonfilter -e "@.error" | grep -q "no SSID"'
+check "router: wifi_join needs a password for a secured network" sh -c 'echo "" | slate-router wifi_join MyNet psk2 | jsonfilter -e "@.error" | grep -q "needs a password"'
+check "router: set_password rejects an empty password" sh -c 'echo "" | slate-router set_password | jsonfilter -e "@.error" | grep -q "empty"'
+check "router: set_password rejects a short password" sh -c 'printf abc | slate-router set_password | jsonfilter -e "@.error" | grep -q "at least 5"'
 
 echo "# slate-ui: capture workbench (slate-capture)"
 RC=/usr/libexec/rpcd/luci.slate-capture
