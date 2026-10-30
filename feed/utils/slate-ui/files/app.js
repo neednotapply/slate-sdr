@@ -554,7 +554,6 @@
 		var profSel = el("select", { class: "sel" },
 			el("option", { value: "quick", text: "Quick — top 100 ports" }),
 			el("option", { value: "top1000", text: "Top 1000 ports" }),
-			el("option", { value: "service", text: "Service / version (top 100)" }),
 			el("option", { value: "ping", text: "Ping sweep (hosts up)" }));
 		var profStatus = el("span", { class: "status" });
 		var profWrap = el("div");
@@ -584,8 +583,8 @@
 					profWrap.appendChild(el("h4", { class: "sub-h2", text: h.ip }));
 					var ports = h.ports || [];
 					if (!ports.length) { profWrap.appendChild(el("div", { class: "muted", text: "no open ports" })); return; }
-					profWrap.appendChild(tableEl(["Port", "Proto", "Service", "Version"], ports.map(function (p) {
-						return [el("strong", { text: String(p.port) }), p.proto || "-", p.service || "-", p.version || ""];
+					profWrap.appendChild(tableEl(["Port", "Proto", "Service"], ports.map(function (p) {
+						return [el("strong", { text: String(p.port) }), p.proto || "-", p.service || "-"];
 					})));
 				});
 			}).catch(function (e) {

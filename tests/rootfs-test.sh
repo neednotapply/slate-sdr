@@ -502,8 +502,7 @@ NMAP
 chmod +x "$NM/nmap"
 PATH="$NM:$PATH" slate-recon scan quick 192.168.1.10 > "$T/scanq.out"
 check "scan: parses hosts and ports" sh -c "[ \"\$(jsonfilter -i $T/scanq.out -e '@.hosts[0].ip') \$(jsonfilter -i $T/scanq.out -e '@.hosts[0].ports[*].service' | tr '\n' ' ')\" = '192.168.1.10 ssh http ' ]"
-PATH="$NM:$PATH" slate-recon scan service 192.168.1.10 > "$T/scans.out"
-check "scan: service profile keeps the version" sh -c "[ \"\$(jsonfilter -i $T/scans.out -e '@.hosts[0].ports[0].version')\" = 'OpenSSH 9.6' ]"
+check "scan: service profile removed (nmap -sV OOMs on 128 MB)" sh -c 'slate-recon scan service 192.168.1.10 | jsonfilter -e "@.error" | grep -q "unknown profile"'
 PATH="$NM:$PATH" slate-recon scan ping 192.168.1.0/24 > "$T/scanp.out"
 check "scan: ping sweep lists hosts up" sh -c "[ \"\$(jsonfilter -i $T/scanp.out -e '@.hosts[*].ip' | tr '\n' ' ')\" = '192.168.1.10 192.168.1.23 ' ]"
 RS="$T/reconstore"; mkdir -p "$RS"
