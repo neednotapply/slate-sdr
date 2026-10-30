@@ -1,0 +1,12 @@
+# Optional "complete"-build extras, appended to the image only when
+# SLATE_EXTRAS=1 (see build.sh and build-full.sh). The lean default image
+# leaves these out to save RAM and flash and to keep nothing extra running at
+# boot. Build the complete image with:  SLATE_EXTRAS=1 ./build.sh   (or
+# ./build-full.sh).
+
+# MQTT broker, its LuCI page and the command-line clients. rtl_433 can publish
+# what it decodes to the broker with this in the `ism` job:
+#   option extra_args '-F mqtt://127.0.0.1:1883,retain=1'
+mosquitto-nossl
+mosquitto-client-nossl
+luci-app-mosquitto

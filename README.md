@@ -68,6 +68,16 @@ ls out/firmware/*sysupgrade.bin
 ls out/firmware-full/*sysupgrade.bin
 ```
 
+**Lean by default.** The image carries only what the device uses, and includes
+`zram-swap` (compressed RAM swap) to give the 128 MB box headroom under the
+SDR + recon load. Optional extras live in `config/packages-extra.txt` and are
+left out unless you ask for them — currently just the MQTT broker:
+
+```sh
+SLATE_EXTRAS=1 ./build.sh          # "complete" image: adds the MQTT broker
+SLATE_EXTRAS=1 ./build-full.sh     # same, full source build
+```
+
 **On GitHub:** every push to `main` runs the *Build firmware* workflow,
 which builds both images and uploads them as artifacts:
 `slate-sdr-firmware` after about 5 minutes (with the tests), and
@@ -142,9 +152,10 @@ for example, to use the RTL-SDR for ISM, disable `adsb` and enable `ism`.
 
 - **Ad blocking** for the router's clients (*Services → Adblock*). On a
   router with 128 MB of RAM, start with one list such as OISD small.
-- **MQTT broker** (mosquitto, *Services → Mosquitto*). rtl_433 publishes what
-  it decodes to it with `option extra_args '-F mqtt://127.0.0.1:1883,retain=1'`
-  in the `ism` job, under `rtl_433/<hostname>/`.
+- **MQTT broker** (mosquitto, *Services → Mosquitto*) — in the **complete**
+  build only (`SLATE_EXTRAS=1`, see *Build*). rtl_433 publishes what it decodes
+  to it with `option extra_args '-F mqtt://127.0.0.1:1883,retain=1'` in the
+  `ism` job, under `rtl_433/<hostname>/`.
 - **tcpdump** (mini) and **horst**, a Wi-Fi analyzer for monitor mode.
 - **Network recon** (*Services → Network Recon*):
   - **Dashboard:** one glance at where the Slate is and what it sees — the

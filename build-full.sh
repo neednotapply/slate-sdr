@@ -32,6 +32,10 @@ echo "src-link slatesdr $here/feed" >> feeds.conf
 
 cp "$here/config/full.config" .config
 sed 's/#.*//' "$here/config/packages.txt" | xargs -n 1 | sed 's/.*/CONFIG_PACKAGE_&=y/' >> .config
+# SLATE_EXTRAS=1 adds the optional "complete"-build extras (see packages-extra.txt).
+if [ "${SLATE_EXTRAS:-0}" = 1 ]; then
+	sed 's/#.*//' "$here/config/packages-extra.txt" | xargs -n 1 | sed 's/.*/CONFIG_PACKAGE_&=y/' >> .config
+fi
 make defconfig
 
 # defconfig drops what it cannot satisfy; stop rather than build without it.
@@ -40,7 +44,7 @@ for opt in CONFIG_KERNEL_RELAY=y CONFIG_PACKAGE_ATH_SPECTRAL=y \
 	CONFIG_PACKAGE_kmod-ath9k=y CONFIG_PACKAGE_slate-sdr=y CONFIG_PACKAGE_luci=y \
 	CONFIG_PACKAGE_luci-app-slate-sdr=y CONFIG_PACKAGE_luci-app-slate-recon=y \
 	CONFIG_PACKAGE_kmod-rt2800-usb=y CONFIG_PACKAGE_kmod-usb-acm=y \
-	CONFIG_PACKAGE_kmod-wireguard=y; do
+	CONFIG_PACKAGE_kmod-wireguard=y CONFIG_PACKAGE_kmod-zram=y; do
 	grep -qx "$opt" .config || { echo "make defconfig dropped $opt" >&2; exit 1; }
 done
 if grep -qx 'CONFIG_PACKAGE_kmod-ath10k-ct=y' .config; then

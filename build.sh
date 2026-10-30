@@ -15,6 +15,11 @@ PROFILE=glinet_gl-ar750s-nor-nand
 here=$(cd "$(dirname "$0")" && pwd)
 out="$here/out"
 packages=$(sed 's/#.*//' "$here/config/packages.txt" | xargs)
+# SLATE_EXTRAS=1 adds the optional "complete"-build extras (e.g. the MQTT
+# broker) from config/packages-extra.txt. The lean default leaves them out.
+if [ "${SLATE_EXTRAS:-0}" = 1 ]; then
+	packages="$packages $(sed 's/#.*//' "$here/config/packages-extra.txt" | xargs)"
+fi
 
 rm -rf "$out/packages" "$out/firmware"
 mkdir -p "$out/packages" "$out/firmware"

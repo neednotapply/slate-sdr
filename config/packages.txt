@@ -12,11 +12,14 @@ luci-app-slate-sdr
 # Ad blocking for the router's clients, through its DNS (dnsmasq)
 luci-app-adblock
 
-# MQTT broker, with its LuCI page and command-line clients; rtl_433 can
-# publish what it decodes to it
-mosquitto-nossl
-mosquitto-client-nossl
-luci-app-mosquitto
+# Compressed RAM swap. On a 128 MB box carrying the SDR + recon stack this buys
+# effective memory and keeps peaks (such as an adblock list load) away from the
+# OOM killer. Pulls kmod-zram; in the full image it builds into the kernel.
+zram-swap
+
+# The MQTT broker (mosquitto) is optional and now lives in
+# config/packages-extra.txt, added only to the "complete" build (SLATE_EXTRAS=1).
+# The lean default image leaves it out so nothing extra runs at boot.
 
 # Packet capture, and a Wi-Fi analyzer for monitor mode
 tcpdump-mini
