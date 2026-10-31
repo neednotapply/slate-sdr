@@ -99,9 +99,12 @@ ath10k-ct. The radios, decoders and logging are the same in both.
    "Keep settings"**. Alternatively, copy it over SSH and run
    `sysupgrade -n /tmp/<file>`.
 3. The router comes back as plain OpenWrt at `192.168.1.1`, with Wi-Fi off.
-   Set a root password: SSH in (`ssh root@192.168.1.1`, no password on a fresh
-   flash) and run `passwd`, or open the Slate UI at `http://192.168.1.1/` and
-   use the Router tab. That password is the Slate UI and SSH login.
+   Open the Slate UI at `http://192.168.1.1/`: on a fresh flash it asks you to
+   set a root password before anything else. That password is then the Slate
+   UI and SSH login; change it later on the Router tab, or with `passwd` over
+   SSH. A password kept from earlier settings can't be reset from the UI: if
+   it's forgotten, SSH in with a key and run `passwd`, or flash without keeping
+   settings.
 
 If it doesn't boot, GL.iNet's U-Boot has a recovery web page: hold reset
 while powering on, set your computer to `192.168.1.2/24`, open
@@ -244,11 +247,10 @@ Not yet run:
   throughput over the router's USB, the card reader's write speed, and Wi-Fi
   spectral scan on this hardware. `ath10k` spectral on the QCA9887
   specifically has not been confirmed.
-- The web UI's live paths on real hardware: slate-capture's background tcpdump
-  and file rotation, slate-handshake's monitor-mode interface and EAPOL
-  capture, and slate-recon's scan profiles against a live nmap. The tests cover
-  their input validation and JSON; the capture and monitor-mode behaviour
-  itself needs the device.
+- The web UI's first-run screen on a freshly flashed device (settings not
+  kept). It relies on rpcd accepting any password while root's is unset, so an
+  empty-password sign-in that succeeds means "set one first". On a device that
+  has a password, the sign-in path has been run on the hardware.
 
 ## Layout
 

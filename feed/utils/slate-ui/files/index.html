@@ -40,6 +40,21 @@
 	</form>
 </div>
 
+<div id="setup" class="overlay" hidden>
+	<form id="setup-form" class="login-card">
+		<h1>Pirate Radio</h1>
+		<p class="muted">This Slate has no root password yet. Set one to secure it &mdash; it is also the SSH login.</p>
+		<label>New password
+			<input id="np1" type="password" autocomplete="new-password">
+		</label>
+		<label>Confirm
+			<input id="np2" type="password" autocomplete="new-password">
+		</label>
+		<button type="submit">Set password</button>
+		<p id="setup-err" class="err" hidden></p>
+	</form>
+</div>
+
 <script src="app.js"></script>
 </body>
 </html>

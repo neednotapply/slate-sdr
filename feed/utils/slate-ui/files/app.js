@@ -50,15 +50,20 @@
 		});
 	}
 
-	function login(user, pass) {
+	// keep === false: don't remember the session across reloads (the first-run
+	// probe, whose session must not outlive an unset password).
+	function login(user, pass, keep) {
 		return rpc("call", [NULL_SID, "session", "login",
 			{ username: user, password: pass, timeout: 3600 }]).then(function (r) {
 			if (!Array.isArray(r) || r[0] !== 0 || !r[1] || !r[1].ubus_rpc_session)
 				throw new Error("login failed");
 			SID = r[1].ubus_rpc_session;
-			try { sessionStorage.setItem("slate_sid", SID); } catch (e) {}
+			if (keep !== false) rememberSession();
 			return SID;
 		});
+	}
+	function rememberSession() {
+		try { sessionStorage.setItem("slate_sid", SID); } catch (e) {}
 	}
 
 	// call(): the one entry point the views use; serves demo data when offline.
@@ -1527,7 +1532,7 @@
 	}
 
 	function onError(e) {
-		if (String(e.message || e) === "unauthorized" && !DEMO) { showLogin(); return; }
+		if (String(e.message || e) === "unauthorized" && !DEMO) { firstRun(); return; }
 		clear(VIEW).appendChild(el("div", { class: "placeholder" },
 			el("b", { text: "Couldn't reach the Slate" }),
 			el("div", { class: "muted", text: String(e.message || e) })));
@@ -1537,6 +1542,31 @@
 
 	function showLogin() { $("login").hidden = false; var p = $("p"); if (p) p.focus(); }
 	function hideLogin() { $("login").hidden = true; }
+
+	// First run: a fresh flash has no root password, and rpcd then accepts any
+	// password (session.c: "password is not set"). So an empty-password sign-in
+	// that succeeds means no password exists yet: ask for one to be set before
+	// ever asking for one. If it fails, a password exists: the normal sign-in.
+	function firstRun() {
+		login("root", "", false).then(showSetup).catch(showLogin);
+	}
+	function showSetup() { $("setup").hidden = false; var p = $("np1"); if (p) p.focus(); }
+
+	$("setup-form").addEventListener("submit", function (ev) {
+		ev.preventDefault();
+		var a = $("np1").value, b = $("np2").value, err = $("setup-err");
+		function fail(msg) { err.textContent = msg; err.hidden = false; }
+		err.hidden = true;
+		if (a.length < 5) return fail("Use at least 5 characters.");
+		if (a !== b) return fail("The two entries differ.");
+		call("luci.slate-router", "set_password", { password: a }).then(function (r) {
+			if (r.error) return fail(r.error);
+			$("np1").value = ""; $("np2").value = "";
+			rememberSession();
+			$("setup").hidden = true;
+			setTab(current);
+		}).catch(function (e) { fail(String(e.message || e)); });
+	});
 
 	$("login-form").addEventListener("submit", function (ev) {
 		ev.preventDefault();
@@ -1561,9 +1591,14 @@
 	function boot() {
 		current = startTab();
 		renderTabs();
-		if (DEMO) { $("demo-badge").hidden = false; setTab(current); return; }
+		if (DEMO) {
+			$("demo-badge").hidden = false;
+			setTab(current);
+			if (/[?&]setup=1/.test(location.search)) showSetup();
+			return;
+		}
 		try { SID = sessionStorage.getItem("slate_sid"); } catch (e) { SID = null; }
-		if (SID) { setTab(current); } else { showLogin(); }
+		if (SID) { setTab(current); } else { firstRun(); }
 	}
 
 	window.addEventListener("hashchange", function () {
