@@ -33,6 +33,8 @@ jobs:
           shellcheck -s sh -e SC1091,SC3043,SC2034 feed/utils/slate-ui/root/usr/sbin/slate-router feed/utils/slate-ui/root/usr/libexec/rpcd/luci.slate-router
           shellcheck -s sh -e SC1091,SC3043,SC2034 feed/utils/slate-ui/root/usr/sbin/slate-capture feed/utils/slate-ui/root/usr/libexec/rpcd/luci.slate-capture
           shellcheck -s sh -e SC1091,SC3043,SC2034 feed/utils/slate-ui/root/usr/sbin/slate-handshake feed/utils/slate-ui/root/usr/libexec/rpcd/luci.slate-handshake
+          shellcheck -s sh -e SC1091,SC3043,SC2034 feed/utils/slate-ui/root/usr/sbin/slate-firmware feed/utils/slate-ui/root/usr/libexec/rpcd/luci.slate-firmware
+          shellcheck -s sh -e SC1091,SC3043 feed/utils/slate-ui/files/slate-upload
           shellcheck -s sh build.sh build-full.sh scripts/*.sh tests/run.sh
           shellcheck -s sh -e SC3043,SC2016,SC2012,SC1091,SC2015 tests/rootfs-test.sh
 

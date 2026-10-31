@@ -108,6 +108,12 @@ guide has the exact LED sequence for your U-Boot version. The
 [OpenWrt page for the GL-AR750S](https://openwrt.org/toh/gl.inet/gl-ar750s)
 covers both directions.
 
+**Later upgrades, from the Slate itself:** the Slate UI has a **Firmware** tab
+that uploads (or fetches by URL) a `…-sysupgrade.bin`, checks it against this
+device with `sysupgrade -T`, and flashes only if that check passes — so the box
+can update itself without LuCI. It can also write a config backup first. The
+U-Boot recovery page above stays the backstop if a flash ever goes wrong.
+
 ## Use
 
 **Status page:** `http://192.168.1.1/cgi-bin/slate-sdr` shows the radios,
@@ -220,10 +226,11 @@ Tested in this repository's tests and builds:
   status page, the LuCI pages' rpcd calls (Slate SDR and Network Recon,
   including the Wi-Fi survey database, GPS status, threat detection, the
   dashboard and the nmap scan profiles) and the web UI's backends
-  (slate-router, slate-capture and slate-handshake: their rpcd plugins, input
-  validation and JSON shapes, including the set-password and Wi-Fi
-  join/scan/status methods), against mock radios and tools on that same
-  userland: 169 checks.
+  (slate-router, slate-capture, slate-handshake and slate-firmware: their rpcd
+  plugins, input validation and JSON shapes, including the set-password, Wi-Fi
+  join/scan/status and firmware verify/apply/upload methods — the flasher runs
+  against a mock sysupgrade, so no real flash is ever attempted), against mock
+  radios and tools on that same userland: 185 checks.
 - Both images build on GitHub Actions, and the tests pass there.
 - The full build's configuration resolves: `./build-full.sh --config-only`
   keeps `CONFIG_KERNEL_RELAY`, the spectral options and upstream ath10k.

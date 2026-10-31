@@ -61,6 +61,11 @@ define Package/slate-ui/install
 	$(INSTALL_BIN) ./root/usr/sbin/slate-handshake $(1)/usr/sbin/slate-handshake
 	$(INSTALL_BIN) ./root/usr/libexec/rpcd/luci.slate-handshake $(1)/usr/libexec/rpcd/luci.slate-handshake
 	$(INSTALL_DATA) ./root/usr/share/rpcd/acl.d/luci-app-slate-handshake.json $(1)/usr/share/rpcd/acl.d/luci-app-slate-handshake.json
+	$(INSTALL_BIN) ./root/usr/sbin/slate-firmware $(1)/usr/sbin/slate-firmware
+	$(INSTALL_BIN) ./root/usr/libexec/rpcd/luci.slate-firmware $(1)/usr/libexec/rpcd/luci.slate-firmware
+	$(INSTALL_DATA) ./root/usr/share/rpcd/acl.d/luci-app-slate-firmware.json $(1)/usr/share/rpcd/acl.d/luci-app-slate-firmware.json
+	$(INSTALL_DIR) $(1)/www/cgi-bin
+	$(INSTALL_BIN) ./files/slate-upload $(1)/www/cgi-bin/slate-upload
 endef
 
 # On a running router: make sure uhttpd exposes /ubus (what the UI calls), then

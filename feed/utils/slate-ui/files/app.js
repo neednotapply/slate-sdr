@@ -92,6 +92,7 @@
 		running: false, phy: "", channel: "", file: "", start: 0,
 		files: [ { name: "home-hs-ch6-20261029-1310.pcap", size: 28672, mtime: "2026-10-29 13:10" } ]
 	};
+	var DEMO_FW = { staged: false, size: 0, verified: false };
 
 	var MOCK = {
 		"luci.slate-recon:dashboard": {
@@ -279,6 +280,32 @@
 			if (DEMO_HS.running) DEMO_HS.files.unshift({ name: DEMO_HS.file, size: 28000, mtime: "just now" });
 			DEMO_HS.running = false;
 			return { stopped: true };
+		},
+		"luci.slate-firmware:status": function () {
+			return { model: "GL.iNet GL-AR750S (NAND)", firmware: "OpenWrt 25.12.6",
+				staging_free: 61000, staged: DEMO_FW.staged, staged_size: DEMO_FW.size, verified: DEMO_FW.verified };
+		},
+		"luci.slate-firmware:verify": function () {
+			if (!DEMO_FW.staged) return { ok: false, error: "no image staged" };
+			DEMO_FW.verified = true;
+			return { ok: true, message: "image is a valid upgrade for this device" };
+		},
+		"luci.slate-firmware:fetch": function (p) {
+			if (!p.url) return { ok: false, error: "no URL" };
+			DEMO_FW.staged = true; DEMO_FW.size = 7340032; DEMO_FW.verified = false;
+			return { ok: true, size: DEMO_FW.size };
+		},
+		"luci.slate-firmware:backup": function () {
+			return { ok: true, file: "/tmp/slate-backup-20261030-101500.tar.gz", size: 48213 };
+		},
+		"luci.slate-firmware:apply": function () {
+			if (!DEMO_FW.staged) return { ok: false, error: "no image staged" };
+			if (!DEMO_FW.verified) return { ok: false, error: "image failed verification; not flashing" };
+			return { ok: true, message: "flashing now; the device will reboot", mode: "keep" };
+		},
+		"luci.slate-firmware:clear": function () {
+			DEMO_FW.staged = false; DEMO_FW.size = 0; DEMO_FW.verified = false;
+			return { ok: true };
 		}
 	};
 
@@ -1287,6 +1314,144 @@
 		refresh();
 	}
 
+	/* ---------- Firmware ---------- */
+
+	function renderFirmware() {
+		clear(VIEW);
+		VIEW.appendChild(viewHead("Firmware", "flash a new Slate image to this device"));
+
+		var curPanel = panel("Current firmware");
+		var curWrap = el("div", {}, el("div", { class: "muted", text: "Loading…" }));
+		curPanel.appendChild(curWrap);
+
+		var flashPanel = panel("Flash new firmware");
+		flashPanel.style.marginTop = "14px";
+		flashPanel.appendChild(alertEl("info",
+			"Upload a sysupgrade image, or fetch it by URL. It is checked against this device before anything is written — a flash never starts from an image that fails the check. If a flash ever goes wrong, hold the reset button at power-on for the GL.iNet U-Boot recovery page."));
+
+		var fileIn = el("input", { class: "inp", type: "file", accept: ".bin,.img,application/octet-stream" });
+		var urlIn = el("input", { class: "inp", type: "text", placeholder: "https://…/…-sysupgrade.bin" });
+		var shaIn = el("input", { class: "inp", type: "text", placeholder: "expected sha256 (optional)" });
+		flashPanel.appendChild(el("div", { class: "form" },
+			el("label", {}, el("span", { class: "lbl", text: "Image file" }), fileIn),
+			el("label", {}, el("span", { class: "lbl", text: "…or URL" }), urlIn),
+			el("label", {}, el("span", { class: "lbl", text: "sha256" }), shaIn)));
+		flashPanel.appendChild(el("div", { class: "toolbar" },
+			btn("Upload image", { onclick: doUpload }), btn("Fetch by URL", { onclick: doFetch })));
+
+		var stagedLine = el("div", { class: "status", text: "No image staged." });
+		var keepChk = el("input", { type: "checkbox" }); keepChk.checked = true;
+		var flashBtn = btn("Flash & reboot", { primary: true, cls: "reset", onclick: doApply });
+		flashBtn.disabled = true;
+		var clearBtn = btn("Discard image", { onclick: doClear });
+		flashPanel.appendChild(stagedLine);
+		flashPanel.appendChild(el("div", { class: "toolbar" },
+			el("label", { class: "chkline" }, keepChk, document.createTextNode(" Keep current settings")),
+			flashBtn, clearBtn));
+		flashPanel.appendChild(el("p", { class: "descr", text:
+			"Flashing reboots the device; it is unreachable for a minute or two. With settings kept, your Wi-Fi, uplink and password carry over." }));
+
+		var bkPanel = panel("Back up configuration");
+		bkPanel.style.marginTop = "14px";
+		var bkStatus = el("span", { class: "status" });
+		bkPanel.appendChild(el("div", { class: "toolbar" }, btn("Back up now", { onclick: doBackup }), bkStatus));
+		bkPanel.appendChild(el("p", { class: "descr", text:
+			"Writes a config archive to the device. Copy it off with scp for a spare — a kept-settings flash does not need it." }));
+
+		VIEW.appendChild(curPanel); VIEW.appendChild(flashPanel); VIEW.appendChild(bkPanel);
+
+		function kv(pairs) {
+			var dl = el("dl", { class: "kv" });
+			pairs.forEach(function (p) {
+				if (p[1] == null || p[1] === "") return;
+				dl.appendChild(el("dt", { text: p[0] }));
+				dl.appendChild(el("dd", { text: String(p[1]) }));
+			});
+			return dl;
+		}
+		function showStaged(s) {
+			clear(stagedLine);
+			if (!s || !s.staged) { stagedLine.className = "status"; stagedLine.textContent = "No image staged."; flashBtn.disabled = true; return; }
+			stagedLine.className = "status";
+			stagedLine.appendChild(badge(s.verified ? "verified" : "not verified", s.verified ? "sec-ok" : "sec-warn"));
+			stagedLine.appendChild(document.createTextNode(" " + size(s.staged_size) + " staged" + (s.verified ? " — ready to flash" : "")));
+			flashBtn.disabled = !s.verified;
+		}
+		function showStatus(s) {
+			clear(curWrap).appendChild(kv([
+				["Model", s.model],
+				["Firmware", s.firmware],
+				["Staging free", s.staging_free ? mb(s.staging_free) + " MB" : null]
+			]));
+			showStaged(s);
+		}
+		function refresh() {
+			return call("luci.slate-firmware", "status").then(showStatus).catch(function (e) {
+				if (String(e.message || e) === "unauthorized") return onError(e);
+				clear(curWrap).appendChild(alertEl("warn", String(e.message || e)));
+			});
+		}
+		function verifyStaged() {
+			stagedLine.className = "status"; stagedLine.textContent = "verifying…";
+			return call("luci.slate-firmware", "verify").then(function (r) {
+				if (!r.ok) { stagedLine.textContent = r.error || "verification failed"; stagedLine.className = "status err"; }
+				return refresh();
+			});
+		}
+		function uploadImage(f) {
+			if (DEMO) { DEMO_FW.staged = true; DEMO_FW.size = f.size; DEMO_FW.verified = false; return Promise.resolve({ ok: true, size: f.size }); }
+			return fetch("/cgi-bin/slate-upload", { method: "PUT", body: f }).then(function (r) { return r.json(); });
+		}
+		function doUpload() {
+			var f = fileIn.files && fileIn.files[0];
+			if (!f) { stagedLine.className = "status err"; stagedLine.textContent = "choose an image file first"; return; }
+			stagedLine.className = "status"; stagedLine.textContent = "uploading " + f.name + "…";
+			uploadImage(f).then(function (r) {
+				if (!r || !r.ok) { stagedLine.className = "status err"; stagedLine.textContent = (r && r.error) || "upload failed"; return; }
+				return verifyStaged();
+			}).catch(function (e) { stagedLine.className = "status err"; stagedLine.textContent = String(e.message || e); });
+		}
+		function doFetch() {
+			if (!urlIn.value) { stagedLine.className = "status err"; stagedLine.textContent = "enter a URL"; return; }
+			stagedLine.className = "status"; stagedLine.textContent = "fetching…";
+			call("luci.slate-firmware", "fetch", { url: urlIn.value, sha256: shaIn.value }).then(function (r) {
+				if (!r.ok) { stagedLine.className = "status err"; stagedLine.textContent = r.error || "download failed"; return; }
+				return verifyStaged();
+			}).catch(function (e) {
+				if (String(e.message || e) === "unauthorized") return onError(e);
+				stagedLine.className = "status err"; stagedLine.textContent = String(e.message || e);
+			});
+		}
+		function doApply() {
+			if (!window.confirm("Flash this image and reboot the Slate? It will be offline for a minute or two.")) return;
+			flashBtn.disabled = true;
+			call("luci.slate-firmware", "apply", { mode: keepChk.checked ? "keep" : "reset" }).then(function (r) {
+				if (!r.ok) { stagedLine.className = "status err"; stagedLine.textContent = r.error || "flash refused"; flashBtn.disabled = false; return; }
+				stagedLine.className = "status ok-text";
+				stagedLine.textContent = "flashing now — the Slate is rebooting. Reload this page in a minute or two.";
+			}).catch(function () {
+				// sysupgrade tears the connection down as it reboots; that is expected.
+				stagedLine.className = "status ok-text";
+				stagedLine.textContent = "flashing — the Slate is rebooting. Reload this page in a minute or two.";
+			});
+		}
+		function doClear() {
+			call("luci.slate-firmware", "clear").then(function () { fileIn.value = ""; return refresh(); }).catch(function () {});
+		}
+		function doBackup() {
+			bkStatus.className = "status"; bkStatus.textContent = "backing up…";
+			call("luci.slate-firmware", "backup").then(function (r) {
+				if (!r.ok) { bkStatus.className = "status err"; bkStatus.textContent = r.error || "backup failed"; return; }
+				bkStatus.className = "status ok-text"; bkStatus.textContent = "saved " + r.file + " (" + size(r.size) + ")";
+			}).catch(function (e) {
+				if (String(e.message || e) === "unauthorized") return onError(e);
+				bkStatus.className = "status err"; bkStatus.textContent = String(e.message || e);
+			});
+		}
+
+		refresh();
+	}
+
 	/* ---------- fallback for an unknown route ---------- */
 
 	function renderPlaceholder(name) {
@@ -1305,7 +1470,8 @@
 		["threats", "Threats"],
 		["router", "Router"],
 		["capture", "Capture"],
-		["handshake", "Handshake"]
+		["handshake", "Handshake"],
+		["firmware", "Firmware"]
 	];
 	var current = "dashboard";
 
@@ -1332,6 +1498,7 @@
 		if (id === "router") return renderRouter();
 		if (id === "capture") return renderCapture();
 		if (id === "handshake") return renderHandshake();
+		if (id === "firmware") return renderFirmware();
 		renderPlaceholder(id);
 	}
 

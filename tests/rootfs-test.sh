@@ -549,6 +549,43 @@ check "handshake: start rejects a non-numeric channel" sh -c 'slate-handshake st
 check "handshake: start rejects a channel out of range" sh -c 'slate-handshake start phy0 999 "" | jsonfilter -e "@.error" | grep -q "out of range"'
 check "handshake: start rejects an unknown radio" sh -c 'slate-handshake start nosuchphy 6 "" | jsonfilter -e "@.error" | grep -q "no such radio"'
 
+echo "# slate-ui: firmware flasher (slate-firmware)"
+RF=/usr/libexec/rpcd/luci.slate-firmware
+IMGF="$T/fw.img"
+# A mock sysupgrade so no real flash is ever attempted: -T fails only when
+# MOCK_SYSUP_FAIL is set, -b writes a dummy backup, apply is a no-op.
+FWM="$T/fwmock"; mkdir -p "$FWM"
+cat > "$FWM/sysupgrade" <<'EOF'
+#!/bin/sh
+prev=; bkp=
+for a; do [ "$prev" = "-b" ] && bkp=$a; prev=$a; done
+if [ -n "$bkp" ]; then echo backup-data > "$bkp"; exit 0; fi
+case " $* " in *" -T "*) [ -n "$MOCK_SYSUP_FAIL" ] && exit 1; exit 0 ;; esac
+exit 0
+EOF
+chmod +x "$FWM/sysupgrade"
+export SLATE_FIRMWARE_IMG="$IMGF"
+export SLATE_SYSUPGRADE="$FWM/sysupgrade"
+export SLATE_FIRMWARE_BACKUPS="$T"
+rm -f "$IMGF" "$IMGF.ok"
+check "firmware: ACL is valid JSON" jsonfilter -i /usr/share/rpcd/acl.d/luci-app-slate-firmware.json -e '@' -q
+check "firmware: rpcd plugin offers status, verify, apply, fetch" sh -c '"'"$RF"'" list | jsonfilter -e "@.status" >/dev/null && "'"$RF"'" list | jsonfilter -e "@.verify" >/dev/null && "'"$RF"'" list | jsonfilter -e "@.apply.mode" | grep -qx str && "'"$RF"'" list | jsonfilter -e "@.fetch.url" | grep -qx str'
+check "firmware: status with nothing staged" sh -c 'slate-firmware status | jsonfilter -e "@.staged" | grep -qx false'
+check "firmware: verify with no image errors" sh -c 'slate-firmware verify | jsonfilter -e "@.error" | grep -q "no image staged"'
+check "firmware: apply with no image refuses" sh -c 'slate-firmware apply keep | jsonfilter -e "@.error" | grep -q "no image staged"'
+check "firmware: fetch rejects a non-http URL" sh -c 'slate-firmware fetch ftp://x/y | jsonfilter -e "@.error" | grep -q "http"'
+head -c 4096 /dev/zero > "$IMGF"
+check "firmware: verify accepts a good image" sh -c 'slate-firmware verify | jsonfilter -e "@.ok" | grep -qx true'
+check "firmware: status shows staged and verified" sh -c 'slate-firmware status | jsonfilter -e "@.verified" | grep -qx true'
+check "firmware: apply reports flashing for a verified image" sh -c 'slate-firmware apply keep | jsonfilter -e "@.message" | grep -q "flashing now"'
+check "firmware: verify rejects a bad image" sh -c 'MOCK_SYSUP_FAIL=1 slate-firmware verify | jsonfilter -e "@.ok" | grep -qx false'
+check "firmware: apply refuses an unverifiable image" sh -c 'MOCK_SYSUP_FAIL=1 slate-firmware apply keep | jsonfilter -e "@.error" | grep -q "not flashing"'
+check "firmware: backup writes an archive and reports its size" sh -c '[ "$(slate-firmware backup | jsonfilter -e "@.size")" -gt 0 ]'
+check "firmware: clear discards the staged image" sh -c 'slate-firmware clear >/dev/null; slate-firmware status | jsonfilter -e "@.staged" | grep -qx false'
+check "upload CGI: stages the posted body" sh -c 'printf hello | CONTENT_LENGTH=5 sh /www/cgi-bin/slate-upload | tail -1 | jsonfilter -e "@.ok" | grep -qx true && [ -s "$SLATE_FIRMWARE_IMG" ]'
+check "upload CGI: rejects an empty body" sh -c 'CONTENT_LENGTH=0 sh /www/cgi-bin/slate-upload </dev/null | tail -1 | jsonfilter -e "@.error" | grep -q "no data"'
+check "upload CGI: rejects an oversize body" sh -c 'CONTENT_LENGTH=100 SLATE_UPLOAD_MAX=10 sh /www/cgi-bin/slate-upload </dev/null | tail -1 | jsonfilter -e "@.error" | grep -q "too large"'
+
 echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

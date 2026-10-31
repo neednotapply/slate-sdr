@@ -261,6 +261,7 @@ button.primary, .login-card button {
 
 /* ---- toolbar + buttons ---- */
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.chkline { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .btn {
 	appearance: none;
 	font: inherit;

@@ -63,16 +63,21 @@ cp "$r/usr/share/rpcd/acl.d/luci-app-slate-recon.json" "$ov/usr/share/rpcd/acl.d
 chmod 755 "$ov/usr/sbin/slate-recon" "$ov/usr/sbin/slate-survey" "$ov/usr/sbin/slate-threats" \
 	"$ov/usr/sbin/slate-dashboard" "$ov/usr/libexec/slate-survey-merge" "$ov/usr/libexec/rpcd/luci.slate-recon"
 
-# slate-ui's backend scripts (router, capture, handshake), from this tree too
+# slate-ui's backend scripts (router, capture, handshake, firmware), from this
+# tree too. slate-upload is the firmware-staging CGI (it lives under files/).
 u="$here/feed/utils/slate-ui/root"
-cp "$u/usr/sbin/slate-router" "$u/usr/sbin/slate-capture" "$u/usr/sbin/slate-handshake" "$ov/usr/sbin/"
+cp "$u/usr/sbin/slate-router" "$u/usr/sbin/slate-capture" "$u/usr/sbin/slate-handshake" \
+	"$u/usr/sbin/slate-firmware" "$ov/usr/sbin/"
 cp "$u/usr/libexec/rpcd/luci.slate-router" "$u/usr/libexec/rpcd/luci.slate-capture" \
-	"$u/usr/libexec/rpcd/luci.slate-handshake" "$ov/usr/libexec/rpcd/"
+	"$u/usr/libexec/rpcd/luci.slate-handshake" "$u/usr/libexec/rpcd/luci.slate-firmware" "$ov/usr/libexec/rpcd/"
 cp "$u/usr/share/rpcd/acl.d/luci-app-slate-router.json" "$u/usr/share/rpcd/acl.d/luci-app-slate-capture.json" \
-	"$u/usr/share/rpcd/acl.d/luci-app-slate-handshake.json" "$ov/usr/share/rpcd/acl.d/"
+	"$u/usr/share/rpcd/acl.d/luci-app-slate-handshake.json" "$u/usr/share/rpcd/acl.d/luci-app-slate-firmware.json" \
+	"$ov/usr/share/rpcd/acl.d/"
+cp "$here/feed/utils/slate-ui/files/slate-upload" "$ov/www/cgi-bin/slate-upload"
 chmod 755 "$ov/usr/sbin/slate-router" "$ov/usr/sbin/slate-capture" "$ov/usr/sbin/slate-handshake" \
-	"$ov/usr/libexec/rpcd/luci.slate-router" "$ov/usr/libexec/rpcd/luci.slate-capture" \
-	"$ov/usr/libexec/rpcd/luci.slate-handshake"
+	"$ov/usr/sbin/slate-firmware" "$ov/usr/libexec/rpcd/luci.slate-router" "$ov/usr/libexec/rpcd/luci.slate-capture" \
+	"$ov/usr/libexec/rpcd/luci.slate-handshake" "$ov/usr/libexec/rpcd/luci.slate-firmware" \
+	"$ov/www/cgi-bin/slate-upload"
 
 # The decoders and libraries OpenWrt itself packages come from its
 # repository when online; offline, <directory> must hold them too.
