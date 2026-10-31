@@ -8,7 +8,9 @@
 	"use strict";
 
 	var UBUS = "/ubus";
-	var NULL_SID = "00000000-0000-0000-0000-000000000000";
+	// rpcd's unauthenticated session: 32 zeros, no dashes. A UUID-style id is an
+	// unknown session to uhttpd, so every call (login included) is denied.
+	var NULL_SID = "00000000000000000000000000000000";
 	var DEMO = /[?&]demo=1/.test(location.search) || location.protocol === "file:";
 	var SID = null;
 
@@ -20,16 +22,29 @@
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params })
 		}).then(function (r) { return r.json(); }).then(function (j) {
-			if (j.error) throw new Error(j.error.message || "rpc error");
+			if (j.error) {
+				var e = new Error(j.error.message || "rpc error");
+				e.code = j.error.code;
+				throw e;
+			}
 			return j.result;
 		});
 	}
 
-	// ubus "call" returns [status, data]; status 0 == ok, 6 == permission.
+	function dropSession() {
+		SID = null;
+		try { sessionStorage.removeItem("slate_sid"); } catch (e) {}
+	}
+
+	// ubus "call" returns [status, data]; status 0 == ok, 6 == permission. An
+	// expired or unknown session comes back as JSON-RPC error -32002 instead.
 	function callm(object, method, params) {
-		return rpc("call", [SID || NULL_SID, object, method, params || {}]).then(function (r) {
+		return rpc("call", [SID || NULL_SID, object, method, params || {}]).catch(function (e) {
+			if (e.code === -32002) { dropSession(); throw new Error("unauthorized"); }
+			throw e;
+		}).then(function (r) {
 			if (!Array.isArray(r)) throw new Error("bad ubus reply");
-			if (r[0] === 6) { SID = null; throw new Error("unauthorized"); }
+			if (r[0] === 6) { dropSession(); throw new Error("unauthorized"); }
 			if (r[0] !== 0) throw new Error("ubus status " + r[0]);
 			return r[1] || {};
 		});
