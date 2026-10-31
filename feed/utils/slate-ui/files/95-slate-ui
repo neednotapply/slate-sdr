@@ -1,7 +1,7 @@
 #!/bin/sh
 # Make sure uhttpd exposes the ubus JSON-RPC endpoint (/ubus) the Slate web UI
-# calls, then reload uhttpd. Idempotent, and safe alongside LuCI, which wants
-# the same endpoint.
+# calls, then reload uhttpd. The UI itself is served from /www at the web root.
+# Idempotent.
 if uci -q get uhttpd.main >/dev/null 2>&1; then
 	if [ "$(uci -q get uhttpd.main.ubus_prefix)" != "/ubus" ]; then
 		uci set uhttpd.main.ubus_prefix='/ubus'

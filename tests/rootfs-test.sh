@@ -326,10 +326,10 @@ HTTP_HOST='10.0.0.5:80' /www/cgi-bin/slate-sdr > "$T/cgi.out" 2>&1
 check "cgi: links use the browser's host" grep -q 'remote=tcp://10.0.0.5:55132' "$T/cgi.out"
 check "cgi: status is HTML-escaped" grep -q 'Jobs:' "$T/cgi.out"
 
-echo "# LuCI pages (luci-app-slate-sdr)"
+echo "# SDR backend (slate-ui, was luci-app-slate-sdr)"
 cp "$T/slate-sdr.default" /etc/config/slate-sdr
 P=/usr/libexec/rpcd/luci.slate-sdr
-check "luci: menu and ACL are valid JSON" sh -c 'jsonfilter -i /usr/share/luci/menu.d/luci-app-slate-sdr.json -e "@" >/dev/null && jsonfilter -i /usr/share/rpcd/acl.d/luci-app-slate-sdr.json -e "@" >/dev/null'
+check "sdr: ACL is valid JSON" jsonfilter -i /usr/share/rpcd/acl.d/luci-app-slate-sdr.json -e '@' -q
 check "luci: plugin offers use and devices" [ "$("$P" list | jsonfilter -e '@.use.job') $("$P" list | jsonfilter -t '@.devices')" = "str object" ]
 
 # use_job <name>: the rpcd call, with the init script's reload stubbed
@@ -364,9 +364,9 @@ check "luci devices: one row per device, broken lines skipped" [ "$(dev decoded)
 check "luci devices: merged across days, latest readings" [ "$(dev 'devices[0].count') $(dev 'devices[0].readings.humidity') $(dev 'devices[0].first')" = "2 47 2026-10-23T22:00:00Z" ]
 check "luci devices: the ISM job's bands" [ "$(dev 'frequencies[0]') $(dev hop_interval)" = "433.92M 600" ]
 
-echo "# network recon (luci-app-slate-recon)"
+echo "# network recon (slate-ui, was luci-app-slate-recon)"
 RP=/usr/libexec/rpcd/luci.slate-recon
-check "recon: menu and ACL are valid JSON" sh -c 'jsonfilter -i /usr/share/luci/menu.d/luci-app-slate-recon.json -e "@" >/dev/null && jsonfilter -i /usr/share/rpcd/acl.d/luci-app-slate-recon.json -e "@" >/dev/null'
+check "recon: ACL is valid JSON" jsonfilter -i /usr/share/rpcd/acl.d/luci-app-slate-recon.json -e '@' -q
 check "recon: plugin offers uplink, discover, hosts, ports" sh -c '"'"$RP"'" list | jsonfilter -e "@.ports.target" | grep -qx str && "'"$RP"'" list | jsonfilter -e "@.uplink" >/dev/null'
 # A valid target with no nmap present still yields valid JSON and no ports.
 slate-recon ports 203.0.113.1 > "$T/ports.out" 2>&1

@@ -39,7 +39,7 @@ code { background: #f3f3f3; padding: 0 .2rem; }
 <a href="http://$host:8080/">Aircraft map</a> &middot;
 <a href="http://$host:8433/">ISM sensors (live)</a> &middot;
 <a href="http://$host:8081/slate-sdr/">Recorded data</a> &middot;
-<a href="/cgi-bin/luci/">Router settings</a>
+<a href="/">Slate UI</a>
 </p>
 <pre>
 EOT

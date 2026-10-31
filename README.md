@@ -99,7 +99,9 @@ ath10k-ct. The radios, decoders and logging are the same in both.
    "Keep settings"**. Alternatively, copy it over SSH and run
    `sysupgrade -n /tmp/<file>`.
 3. The router comes back as plain OpenWrt at `192.168.1.1`, with Wi-Fi off.
-   Set a root password in LuCI (`http://192.168.1.1/`).
+   Set a root password: SSH in (`ssh root@192.168.1.1`, no password on a fresh
+   flash) and run `passwd`, or open the Slate UI at `http://192.168.1.1/` and
+   use the Router tab. That password is the Slate UI and SSH login.
 
 If it doesn't boot, GL.iNet's U-Boot has a recovery web page: hold reset
 while powering on, set your computer to `192.168.1.2/24`, open
@@ -120,11 +122,12 @@ U-Boot recovery page above stays the backstop if a flash ever goes wrong.
 card and jobs, with links to the aircraft map, the ISM live view and the
 recorded files (`http://192.168.1.1:8081/slate-sdr/`).
 
-**In LuCI:** *Services → Slate SDR* has the same status with every address
-the receivers serve, the aircraft map, the ISM devices rtl_433 has decoded
-(one row per device, with its latest readings) and the recorded files.
-Opening the *Aircraft map* or *ISM sensors* tab hands the RTL-SDR to that
-job. After installing or upgrading, log out of LuCI and back in once.
+**In the Slate UI** (`http://192.168.1.1/`): the *Radios & SDR* tab has the
+same status with every address the receivers serve, the aircraft map, the ISM
+devices rtl_433 has decoded (one row per device, with its latest readings) and
+the recorded files; using a radio hands the RTL-SDR to that job. The Dashboard,
+Hosts, Wi-Fi Survey, Threats, Router, Capture, Handshake and Firmware tabs cover
+the network, the router and firmware.
 
 **Over SSH:**
 
@@ -223,9 +226,9 @@ Tested in this repository's tests and builds:
   (`mips_24kc`). The binaries run on OpenWrt 25.12.6's MIPS userland under
   QEMU, and SoapySDR loads its HackRF and RTL-SDR modules.
 - `tests/rootfs-test.sh` covers every job, the init script, the CLI, the
-  status page, the LuCI pages' rpcd calls (Slate SDR and Network Recon,
-  including the Wi-Fi survey database, GPS status, threat detection, the
-  dashboard and the nmap scan profiles) and the web UI's backends
+  status page, the SDR and Network Recon backends (including the Wi-Fi survey
+  database, GPS status, threat detection, the dashboard and the nmap scan
+  profiles) and the rest of the web UI's backends
   (slate-router, slate-capture, slate-handshake and slate-firmware: their rpcd
   plugins, input validation and JSON shapes, including the set-password, Wi-Fi
   join/scan/status and firmware verify/apply/upload methods — the flasher runs
@@ -251,10 +254,10 @@ Not yet run:
 
 | Path | |
 |---|---|
-| `feed/` | OpenWrt package feed: `fftw3f`, `hackrf`, `soapysdr`, `soapy-hackrf`, `soapy-rtlsdr`, `soapy-remote`, `slate-sdr`, `luci-app-slate-sdr` |
+| `feed/` | OpenWrt package feed: `fftw3f`, `hackrf`, `soapysdr`, `soapy-hackrf`, `soapy-rtlsdr`, `soapy-remote`, `slate-sdr`, `slate-ui` |
 | `feed/utils/slate-sdr/files/` | the service: job runner, init script, CLI, status page, default config |
-| `feed/luci/luci-app-slate-sdr/` | the LuCI pages (`htdocs/`) and their rpcd plugin and ucode helper (`root/`) |
-| `feed/luci/luci-app-slate-recon/` | the Network Recon pages (Dashboard, Hosts, Wi-Fi Survey, Threats), their rpcd plugin and the `slate-recon` / `slate-survey` / `slate-threats` / `slate-dashboard` tools |
+| `feed/utils/slate-ui/files/` | the web UI (`index.html`, `app.js`, `style.css`) and the firmware-upload CGI, served at `/` |
+| `feed/utils/slate-ui/root/` | the UI's rpcd/ubus backends: router basics, firmware, capture, handshake, and the SDR (`luci.slate-sdr`) and recon (`slate-recon` / `slate-survey` / `slate-threats` / `slate-dashboard`) tools |
 | `config/packages.txt` | what goes into the image on top of OpenWrt's defaults |
 | `config/full.config` | full-build options (spectral scan, ath10k) |
 | `build.sh`, `scripts/` | the Docker build (SDK, then ImageBuilder) |

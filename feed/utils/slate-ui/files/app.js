@@ -1,6 +1,6 @@
 /* Slate web UI. A tiny single-page app that talks to the router's rpcd/ubus
    methods (luci.slate-recon, luci.slate-sdr) over /ubus with a root session.
-   No framework. Served by uhttpd at /slate-ui/.
+   No framework. Served by uhttpd at the web root (/).
 
    Demo mode: open with ?demo=1 (or from a file:// path) to render built-in
    sample data without a router, for previewing the design. */

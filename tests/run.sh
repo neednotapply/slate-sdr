@@ -23,7 +23,7 @@ trap 'rm -rf "$ov"' EXIT
 docker run --rm --user 0 -e OWNER="$(id -u):$(id -g)" \
 	-v "$pkgs:/pkgs:ro" -v "$ov:/ov" "$SDK_IMAGE" sh -c '
 	for f in /pkgs/*.apk; do
-		case "${f##*/}" in slate-sdr-* | luci-app-slate-sdr-* | luci-app-slate-recon-* | slate-ui-*) continue ;; esac
+		case "${f##*/}" in slate-sdr-* | slate-ui-*) continue ;; esac
 		/builder/staging_dir/host/bin/apk extract --allow-untrusted --destination /ov "$f" > /dev/null
 	done
 	rm -rf /ov/lib/apk
@@ -41,42 +41,32 @@ cp "$f/status.cgi" "$ov/www/cgi-bin/slate-sdr"
 chmod 755 "$ov/etc/init.d/slate-sdr" "$ov/usr/libexec/slate-sdr-job" \
 	"$ov/usr/sbin/slate-sdr" "$ov/www/cgi-bin/slate-sdr"
 
-# luci-app-slate-sdr's scripts, from this tree too
-l="$here/feed/luci/luci-app-slate-sdr/root"
-mkdir -p "$ov/usr/libexec/rpcd" "$ov/usr/share/luci/menu.d" "$ov/usr/share/rpcd/acl.d"
-cp "$l/usr/libexec/rpcd/luci.slate-sdr" "$ov/usr/libexec/rpcd/"
-cp "$l/usr/libexec/luci-slate-sdr-devices" "$ov/usr/libexec/"
-cp "$l/usr/share/luci/menu.d/luci-app-slate-sdr.json" "$ov/usr/share/luci/menu.d/"
-cp "$l/usr/share/rpcd/acl.d/luci-app-slate-sdr.json" "$ov/usr/share/rpcd/acl.d/"
-chmod 755 "$ov/usr/libexec/rpcd/luci.slate-sdr" "$ov/usr/libexec/luci-slate-sdr-devices"
-
-# luci-app-slate-recon's scripts, from this tree too
-r="$here/feed/luci/luci-app-slate-recon/root"
-cp "$r/usr/sbin/slate-recon" "$ov/usr/sbin/slate-recon"
-cp "$r/usr/sbin/slate-survey" "$ov/usr/sbin/slate-survey"
-cp "$r/usr/sbin/slate-threats" "$ov/usr/sbin/slate-threats"
-cp "$r/usr/sbin/slate-dashboard" "$ov/usr/sbin/slate-dashboard"
-cp "$r/usr/libexec/slate-survey-merge" "$ov/usr/libexec/slate-survey-merge"
-cp "$r/usr/libexec/rpcd/luci.slate-recon" "$ov/usr/libexec/rpcd/"
-cp "$r/usr/share/luci/menu.d/luci-app-slate-recon.json" "$ov/usr/share/luci/menu.d/"
-cp "$r/usr/share/rpcd/acl.d/luci-app-slate-recon.json" "$ov/usr/share/rpcd/acl.d/"
-chmod 755 "$ov/usr/sbin/slate-recon" "$ov/usr/sbin/slate-survey" "$ov/usr/sbin/slate-threats" \
-	"$ov/usr/sbin/slate-dashboard" "$ov/usr/libexec/slate-survey-merge" "$ov/usr/libexec/rpcd/luci.slate-recon"
-
-# slate-ui's backend scripts (router, capture, handshake, firmware), from this
-# tree too. slate-upload is the firmware-staging CGI (it lives under files/).
+# The slate-ui package carries the whole web interface and its backends —
+# router basics, network recon, SDR, packet capture, passive handshake capture
+# and firmware — from this tree too. slate-upload is the firmware-staging CGI
+# (under files/); 95-slate-recon-gpsd is the gpsd first-boot default.
 u="$here/feed/utils/slate-ui/root"
+mkdir -p "$ov/usr/libexec/rpcd" "$ov/usr/share/rpcd/acl.d" "$ov/etc/uci-defaults"
 cp "$u/usr/sbin/slate-router" "$u/usr/sbin/slate-capture" "$u/usr/sbin/slate-handshake" \
-	"$u/usr/sbin/slate-firmware" "$ov/usr/sbin/"
+	"$u/usr/sbin/slate-firmware" "$u/usr/sbin/slate-recon" "$u/usr/sbin/slate-survey" \
+	"$u/usr/sbin/slate-threats" "$u/usr/sbin/slate-dashboard" "$ov/usr/sbin/"
 cp "$u/usr/libexec/rpcd/luci.slate-router" "$u/usr/libexec/rpcd/luci.slate-capture" \
-	"$u/usr/libexec/rpcd/luci.slate-handshake" "$u/usr/libexec/rpcd/luci.slate-firmware" "$ov/usr/libexec/rpcd/"
+	"$u/usr/libexec/rpcd/luci.slate-handshake" "$u/usr/libexec/rpcd/luci.slate-firmware" \
+	"$u/usr/libexec/rpcd/luci.slate-sdr" "$u/usr/libexec/rpcd/luci.slate-recon" "$ov/usr/libexec/rpcd/"
+cp "$u/usr/libexec/luci-slate-sdr-devices" "$u/usr/libexec/slate-survey-merge" "$ov/usr/libexec/"
 cp "$u/usr/share/rpcd/acl.d/luci-app-slate-router.json" "$u/usr/share/rpcd/acl.d/luci-app-slate-capture.json" \
 	"$u/usr/share/rpcd/acl.d/luci-app-slate-handshake.json" "$u/usr/share/rpcd/acl.d/luci-app-slate-firmware.json" \
+	"$u/usr/share/rpcd/acl.d/luci-app-slate-sdr.json" "$u/usr/share/rpcd/acl.d/luci-app-slate-recon.json" \
 	"$ov/usr/share/rpcd/acl.d/"
+cp "$u/etc/uci-defaults/95-slate-recon-gpsd" "$ov/etc/uci-defaults/"
 cp "$here/feed/utils/slate-ui/files/slate-upload" "$ov/www/cgi-bin/slate-upload"
 chmod 755 "$ov/usr/sbin/slate-router" "$ov/usr/sbin/slate-capture" "$ov/usr/sbin/slate-handshake" \
-	"$ov/usr/sbin/slate-firmware" "$ov/usr/libexec/rpcd/luci.slate-router" "$ov/usr/libexec/rpcd/luci.slate-capture" \
+	"$ov/usr/sbin/slate-firmware" "$ov/usr/sbin/slate-recon" "$ov/usr/sbin/slate-survey" \
+	"$ov/usr/sbin/slate-threats" "$ov/usr/sbin/slate-dashboard" \
+	"$ov/usr/libexec/rpcd/luci.slate-router" "$ov/usr/libexec/rpcd/luci.slate-capture" \
 	"$ov/usr/libexec/rpcd/luci.slate-handshake" "$ov/usr/libexec/rpcd/luci.slate-firmware" \
+	"$ov/usr/libexec/rpcd/luci.slate-sdr" "$ov/usr/libexec/rpcd/luci.slate-recon" \
+	"$ov/usr/libexec/luci-slate-sdr-devices" "$ov/usr/libexec/slate-survey-merge" \
 	"$ov/www/cgi-bin/slate-upload"
 
 # The decoders and libraries OpenWrt itself packages come from its

@@ -32,8 +32,6 @@ cat > .config <<-CONFIG
 	CONFIG_PACKAGE_soapy-rtlsdr=m
 	CONFIG_PACKAGE_soapy-remote-server=m
 	CONFIG_PACKAGE_slate-sdr=m
-	CONFIG_PACKAGE_luci-app-slate-sdr=m
-	CONFIG_PACKAGE_luci-app-slate-recon=m
 	CONFIG_PACKAGE_slate-ui=m
 CONFIG
 quiet make defconfig
@@ -43,10 +41,10 @@ for p in fftw3f hackrf soapysdr soapy-hackrf soapy-rtlsdr soapy-remote; do
 	make -j"$(nproc)" "package/$p/compile"
 done
 
-# slate-sdr and its LuCI pages are scripts only: package them without
-# building their run-time dependencies, which the ImageBuilder takes from
-# OpenWrt's repository.
-for p in slate-sdr luci-app-slate-sdr luci-app-slate-recon slate-ui; do
+# slate-sdr and the slate-ui package (UI + its backends) are scripts only:
+# package them without building their run-time dependencies, which the
+# ImageBuilder takes from OpenWrt's repository.
+for p in slate-sdr slate-ui; do
 	echo "-- $p"
 	quiet make -C "package/feeds/slatesdr/$p" TOPDIR="$PWD" compile
 done
